@@ -19,7 +19,7 @@
 #define SIZEOF_UINT8 1
 
 
-enum hamming_tam_bloque{ HAM8, HAM4096, HAM65536 };
+enum hamming_tam_bloque{ HAM8, HAM256, HAM4096 };
 
 enum hamming_estados_bloque{ EST_SINERROR, EST_UN_ERROR, EST_DOS_ERRORES };
 
@@ -41,4 +41,4 @@ int _hamming_decodificar_archivo_8bits(char []);
 void _hamming_corregir_bloque_8(uint8_t *, uint16_t , int []);
 
 
-#endif  // INCLUDE/home/gestrada/Universidad/2024_1c/Teoria de la informacion y la comunicacion/trabajo_maquina_1HammingHamming.h_
+#endif  
