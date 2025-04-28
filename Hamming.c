@@ -329,9 +329,13 @@ uint16_t _hamming_codificar_bloque_8(uint8_t bloque_informacion) {
 /* Decodifica un bloque de Hamming de 8 bits.
  *
  * Los dos bytes devueltos por la funcion corresponden al sindrome de cada bloque.
- * El numero representado por el byte es la posicion donde se encuentra el error en el bloque, excepto por el primer bit (el mas significativo) que si se encuentra en 1 es porque no se corresponde la paridad total con el respectivo bit.
+ * El numero representado por el byte es la posicion donde se encuentra el error en el bloque,
+ * excepto por el primer bit (el mas significativo) que si se encuentra en 1 es porque no se
+ * corresponde la paridad total con el respectivo bit.
  *
- * @return Devuelve ambos sindromes en un byte cada uno + el bit de paridad total.
+ * @param bloque_codificado Dos bloques codificados consecutivos de 8 bits.
+ * @param bloque_informacion Puntero a byte donde se escribira la informacion extraida de ambos bloques.
+ * @return Devuelve los sindromes de ambos bloques en un byte cada uno + el bit de paridad total.
  */
 uint16_t _hamming_decodificar_bloque_8(uint16_t bloque_codificado, uint8_t *bloque_informacion) {
 	uint8_t indice, bloques_procesados = 2;
@@ -427,88 +431,80 @@ int _hamming_codificar_archivo_8bits(char nombre_fuente[]) {
 	return bytes_leidos;
 }
 
-/** Corrige un bloque de 8 bits codificado por Hamming, si este posee un solo error.
+/** Corrige dos bloques consecutivos de 8 bits (uint16_t) codificado por Hamming, si este posee un solo error.
  * En caso de dos errores la informacion no es modificada.
  *
- * @param informacion Byte de bloque codificado.
- * @param sindromes Dos bytes con los sindromes y paridades de ambas mitades del byte de informacion.
+ * @param bloque Bytea de bloquea codificado.
+ * @param sindromes Dos bytes con los sindromes y paridades de ambos bloques.
  * @param estado Debe ser un arreglo de dos entradas. Se ubicaran el estado y tipo de error de ambos bloques.
  */
-void _hamming_corregir_bloque_8(uint8_t *informacion, uint16_t sindromes, int estado[]) {
-	uint16_t paridad, posicion_error, auxiliar, contador_potencias;
-	uint8_t estado_izq, estado_der, mascara;
+void _hamming_corregir_bloque_8(uint16_t *bloques, uint16_t sindromes, int estado[]) {
+	uint16_t paridad_izq, paridad_der,
+			 pos_error_izq, pos_error_der,
+			 auxiliar;
+	uint8_t estado_izq, estado_der;
 
-	/*se separan el bit de paridad total y los bits de control del byte de la derecha */
-	paridad = sindromes & 0x80; posicion_error = sindromes & 0x7f;
-	/*caso que no corresponda la paridad, hay error en el bloque o en el bit de paridad mismo */
-	if (paridad) {
-		if (posicion_error) {
+	/*se separan el bit de paridad total y los bits de control */
+	//derecha
+	paridad_der = sindromes & 0x80; pos_error_der = sindromes & 0x7f;
+	// izquierda
+	paridad_izq = sindromes & 0x8000; pos_error_izq = ((sindromes >> 8) & 0x7f);
 
-			/*solo se corrige si la posicion corresponde a un bit de informacion
-			 * (si NO es una potencia de dos)*/
-			auxiliar = posicion_error;
-			if (posicion_error & --auxiliar) {
-				/*se necesita restar las posiciones correspondientes a los bits de control */
-				contador_potencias = 0x2;
-				while ((0x1 << contador_potencias) < posicion_error) contador_potencias++;
-				
-				mascara = 0x1 << (posicion_error - contador_potencias - 1);
-				*informacion = *informacion ^ mascara;
-			}
-		}
-		estado[1] = EST_UN_ERROR;
+	// BLOQUE DERECHO
+	/*caso que corresponda la paridad total */
+	if (!paridad_der) {
+		if (pos_error_der) {
+		/* - 0x100 porque el xor se realiza en el bloque derecho de los 16 bits de 'bloques'.
+		 * - se disminuye la posicion en 1 porque si este fuese el primer bit no se realiza shift.
+		 * */
+				*bloques = (*bloques) ^ ((0x100 << --pos_error_der));
+
+			// se indica el tipo de error
+			estado[0] = EST_UN_ERROR;
+		} else estado[0] = EST_SINERROR;	// caso sin errores
+	} else {
+		/* si la paridad total no corresponde, y el sindrome es cero,
+		 * caso cuando el error se produce en el bit de paridad */
+		if (!pos_error_der) {
+			*bloques = (*bloques) ^ 0x8000;
+			estado[0] = EST_UN_ERROR;
+		} else estado[0] = EST_DOS_ERRORES;	// caso de dos errores
 	}
-	/* caso que la paridad corresponda */
-	else {
-		/*si el sindrome es distinto de cero, hay dos errores */
-		if (posicion_error) estado[1] = EST_DOS_ERRORES;
-		else estado[1] = EST_SINERROR;
-	}
 
-	/*mismo procedimiento pero para el byte de la izquierda */
-	sindromes = sindromes >> 8;
-	paridad = sindromes & 0x80; posicion_error = sindromes & 0x7f;
-	/*caso que no corresponda la paridad, hay error en el bloque o en el bit de paridad mismo */
-	if (paridad) {
-		if (posicion_error) {
+	// BLOQUE IZQUIERDO
+	/*caso que corresponda la paridad total */
+	if (!paridad_izq) {
+		if (pos_error_izq) {
+		/* se disminuye la posicion en 1 porque si este fuese el primer bit no se realiza shift.
+		 * */
+				*bloques = (*bloques) ^ ((0x1 << --pos_error_izq));
 
-			/*solo se corrige si la posicion corresponde a un bit de informacion
-			 * (si NO es una potencia de dos)*/
-			auxiliar = posicion_error;
-			if (posicion_error & --auxiliar) {
-				/*se necesita restar las posiciones correspondientes a los bits de control */
-				contador_potencias = 0x1;
-				while ((0x1 << contador_potencias) < posicion_error) contador_potencias++;
-				
-				mascara = 0x1 << (posicion_error - contador_potencias + 3);
-				*informacion = *informacion ^ mascara;
-			}
-		}
-		estado[0] = EST_UN_ERROR;
-	}
-	/* caso que la paridad corresponda */
-	else {
-		/*si el sindrome es distinto de cero, hay dos errores */
-		if (posicion_error) estado[0] = EST_DOS_ERRORES;
-		else estado[0] = EST_SINERROR;
+			// se indica el tipo de error
+			estado[1] = EST_UN_ERROR;
+		} else estado[1] = EST_SINERROR;	// caso sin errores
+	} else {
+		/* si la paridad total no corresponde, y el sindrome es cero,
+		 * caso cuando el error se produce en el bit de paridad */
+		if (!pos_error_der) {
+			*bloques = (*bloques) ^ 0x80;
+			estado[1] = EST_UN_ERROR;
+		} else estado[1] = EST_DOS_ERRORES;	// caso de dos errores
 	}
 }
 
-/**
+/** Decodifica un archivo HA1 o HE1, creando dos archivos DE1 y DC1 sin corregir y
+ * corregido respectivamente.
  *
- * @param nombre_archivo Nombre del archivo a decodificar. No incluir extension.
- * @return Estado de exito de lectura/escritura de archivos.
+ * @param nombre_fuente Nombre del archivo a decodificar (extension HA1 o HE1).
+ * @return Estado de exito de lectura/escritura de archivos. 0 sin errores, 1 caso contrario.
  */
-int _hamming_decodificar_archivo_8bits(char nombre_archivo[]) {
-	char nombre_fuente[TAM_CADENAS_NOMBRE],
-		nombre_destino_error[TAM_CADENAS_NOMBRE],
+int _hamming_decodificar_archivo_8bits(char nombre_fuente[]) {
+	char nombre_destino_error[TAM_CADENAS_NOMBRE],
 		nombre_destino_corregido[TAM_CADENAS_NOMBRE];
 
 	/*se crean los nombres de los archivos */
-	strcpy(nombre_fuente, nombre_archivo);
-	strcpy(nombre_destino_error, nombre_archivo);
-	strcpy(nombre_destino_corregido, nombre_archivo);
-	strcat(nombre_fuente, ".ha1");
+	strcpy(nombre_destino_error, nombre_fuente);
+	strcpy(nombre_destino_corregido, nombre_fuente);
 	strcat(nombre_destino_error, ".de1");
 	strcat(nombre_destino_corregido, ".dc1");
 
@@ -534,13 +530,16 @@ int _hamming_decodificar_archivo_8bits(char nombre_archivo[]) {
 		/*evitar caso de lectura cero antes del llegar a EOF */
 		if (bytes_leidos) {
 
+			// extraccion de bits de informacion + sindrome
 			sindromes = _hamming_decodificar_bloque_8(lectura, &informacion);
 
 			/*escritura en el archivo sin correccion */
 			fwrite(&informacion, SIZEOF_UINT8, 1, archivo_destino_error);
 
 			/* se corrige el bloque si contiene UN SOLO error */
-			_hamming_corregir_bloque_8(&informacion, sindromes, estado);
+			_hamming_corregir_bloque_8(&lectura, sindromes, estado);
+			/* se extrae los bits de informacion corregidos */
+			sindromes = _hamming_decodificar_bloque_8(lectura, &informacion);
 
 			/*escritura en el archivo corregido */
 			fwrite(&informacion, SIZEOF_UINT8, 1, archivo_destino_corregido);

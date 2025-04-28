@@ -43,7 +43,7 @@ int _hamming_error_en_bloque_8(uint8_t *,float);
 
 int _hamming_error_en_archivo_8bits(char [], float);
 
-void _hamming_corregir_bloque_8(uint8_t *, uint16_t , int []);
+void _hamming_corregir_bloque_8(uint16_t *, uint16_t , int []);
 
 // funciones adicionales
 void nombre_archivo_quitar_extension(char [], char []);
