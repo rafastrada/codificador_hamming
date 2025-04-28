@@ -26,6 +26,8 @@ int main(int argc, char *argv[])
 	// mensaje inicial
 	printf("Codificador de archivos TXT con Codigos de Hamming\n\n");
 
+	char nombre_archivo_entrada[TAM_CADENAS_NOMBRE];
+
 	/* se analizan los parametros de entrada */
 	/* si no se incluyeron parametros (menos de 2) solo imprime
 	 * la ayuda */
@@ -49,9 +51,6 @@ int main(int argc, char *argv[])
 		if (strcmp(argv[1], "codificar") == 0 &&
 				argc == 4) {	//controla cantidad de parametros
 
-			char nombre_archivo_entrada[TAM_CADENAS_NOMBRE], 
-				nombre_archivo_salida[TAM_CADENAS_NOMBRE];
-			FILE *fuente, *destino;			// archivos de entrada y salida.
 			int bytes_informacion = 0;		// tamanio de archivo de informacion de entrada,
 											// usado para imprimir en pantalla.
 
@@ -64,55 +63,52 @@ int main(int argc, char *argv[])
 				return EXIT_FAILURE;
 			}
 
-			// se comprueba y abre el archivo fuente
-			fuente = fopen(nombre_archivo_entrada, "rb");
-			if (fuente != NULL) {
-
-				/*controla el parametro de tamanio de bloque*/
-				// bloques de 8bits
-				if (strcmp(argv[2], "8") == 0) {
-					// crear nombre de archivo de salida
-					// <nombre_archivo>.ha1
-					nombre_archivo_quitar_extension(
-							nombre_archivo_salida, 
-							nombre_archivo_entrada);
-					strcat(nombre_archivo_salida, ".ha1");	// agrega extension
-															//
-					// abrir archivo destino
-					destino = fopen(nombre_archivo_salida, "wb+");
-
-					//codificacion del archivo de entrada
-					bytes_informacion = _hamming_codificar_archivo_8bits(fuente, destino);
-					
-					fclose(destino);
-
-					printf(
-							"\nSe codifico el archivo '%s' con bloques de 8 bits.\n"
-							"Nombre de archivo de salida: %s\n"
-							"Tamanio de archivo de salida: %d\n",
-							nombre_archivo_entrada,
-							nombre_archivo_salida,
-							bytes_informacion
-						  );
-				}
-
-
-				fclose(fuente);
-			} else {	// caso de error al abrir el archivo
-				// imprime por pantalla y termina el programa
-				printf("\nHubo un error al intentar abrir el archivo %s.\n",
-						nombre_archivo_entrada);
-				return EXIT_FAILURE;
+			/*controla el parametro de tamanio de bloque*/
+			// bloques de 8bits
+			if (strcmp(argv[2], "8") == 0) {
+														//
+				//codificacion del archivo de entrada
+				bytes_informacion = _hamming_codificar_archivo_8bits(nombre_archivo_entrada);
+				
+				printf(
+						"\nSe codifico el archivo '%s' con bloques de 8 bits.\n"
+						"Se creo un archivo de formato HA1 con el mismo nombre.\n"
+						"Tamanio de archivo de salida: %d\n",
+						nombre_archivo_entrada,
+						bytes_informacion
+					  );
 			}
 		}
-
 		// -------------------------------------------------------
 		// funcion ALTERAR
+		// cli_hamming.exe | 'alterar' | nom_archivo | prob_de_error
 		else if (strcmp(argv[1], "alterar") == 0 && argc == 4) {
-			printf("\n\n%d\n\n",tipo_ext_nombre_archivo(argv[2]));
-		}
-	}
+			// captura de nombre de archivo de entrada (3er argumento)
+			strncpy(nombre_archivo_entrada, argv[2], TAM_CADENAS_NOMBRE);
+			// captura de extension de archivo de entrada
+			int ext_archivo_entrada =
+				tipo_ext_nombre_archivo(nombre_archivo_entrada);
+			// captura de argumento de probabilidad (4to argumento),
+			// se convierte de string a flotante
+			const float probabilidad = strtof(argv[3], NULL);
 
+			/* segun el tipo de codificacion se bifurca en la funcion de 
+			 * introduccion de error correspondiente*/
+			switch (ext_archivo_entrada) {
+				case HA1:
+					_hamming_error_en_archivo_8bits(
+							nombre_archivo_entrada, probabilidad);
+					break;
+				default:
+					// cuando el archivo no es de formato HA_
+					// termina el programa
+					printf(
+							"Debe ingresar un archivo de formato .ha_ para alterarlo!\n"
+						  );
+					return EXIT_FAILURE;
+			}
+		}
+		}
 
 	return EXIT_SUCCESS;
 }

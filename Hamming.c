@@ -382,19 +382,31 @@ uint16_t _hamming_decodificar_bloque_8(uint16_t bloque_codificado, uint8_t *bloq
 
 /** Lee un archivo TXT y crea uno de mismo nombre con extension HA1
  * con el contenido codificado por Hamming en bloques de 8 bits.
- * Los punteros a archvos deben estar PREVIAMENTE abiertos.
+ * Nota: no se realiza control sobre el formato del archivo.
  *
- * @param fuente Puntero al archivo fuente a codificar.
- * @param destino Puntero al archivo destino.
+ * @param nombre_fuente Nombre de archivo TXT a codificar.
  *
- * @return Devuelve la cantidad de bytes de informacion leidos de 'fuente'.
+ * @return Devuelve la cantidad de bytes de informacion leidos de 'fuente'. -1 en caso de error.
  */
-int _hamming_codificar_archivo_8bits(FILE *fuente, FILE *destino) {
-	char nombre_fuente[128], nombre_destino[128];
+int _hamming_codificar_archivo_8bits(char nombre_fuente[]) {
+	char nombre_destino[TAM_CADENAS_NOMBRE];
+	FILE *fuente, *destino;
 	int byte_leido;		/*recibe si la funcion 'fread' ha leido algo del archivo fuente */
 	int bytes_leidos;	/* cuenta los bytes de informacion leidos*/
 	uint8_t lectura;
 	uint16_t escritura;
+
+	/*declaracion y apertura de archivos*/
+	//captura del nombre del archivo para destino (debe ser un TXT)
+	nombre_archivo_quitar_extension(nombre_destino, nombre_fuente);
+	strcat(nombre_destino, ".ha1");		// se agrega la extension
+	
+	// apertura de archivos.
+	// en caso de error la funcion termina, retornando -1
+	fuente = fopen(nombre_fuente, "rb");
+	if (fuente == NULL) return -1;
+	destino = fopen(nombre_destino, "wb+");
+	if (destino == NULL) return -1;
 
 
 	while (!feof(fuente)) {
@@ -406,6 +418,9 @@ int _hamming_codificar_archivo_8bits(FILE *fuente, FILE *destino) {
 		/*El control es necesario ya que antes de llegar a EOF la funcion 'fread' intenta leer, devolviento 0 elementos leidos */
 		if (byte_leido) fwrite(&escritura, 2, 1, destino);
 	}
+
+	fclose(destino);
+	fclose(fuente);
 
 	// devuelve la cantidad de bytes de informacion leidos
 	// (igual al tamanio del archivo de entrada)

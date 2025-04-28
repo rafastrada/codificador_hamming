@@ -29,7 +29,7 @@ uint16_t _hamming_codificar_bloque_8(uint8_t );
 
 uint8_t _hamming_codificar_bloque_4096(uint32_t [],uint8_t , uint16_t , uint32_t []);
 
-int _hamming_codificar_archivo_8bits(FILE *, FILE *);
+int _hamming_codificar_archivo_8bits(char []);
 
 int _hamming_codificar_archivo_4096bits(char []);
 
