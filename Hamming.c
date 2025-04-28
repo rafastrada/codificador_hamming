@@ -13,16 +13,6 @@
 #include "Hamming.h"
 
 
-void hamming_codificar_bloque(int tam_bloque, uint32_t bloque_informacion[]) {
-	/* Se bifurca segun el tamaño de bloque
-	 */
-	switch (tam_bloque) {
-		case HAM8: {
-					   // TODO: llamar a bloque correspondiente
-				   }
-	}
-}
-
 /** Funcion que codifica una fuente de informacion con Hamming en un arreglo nuevo.
  * La funcion puede no utilizar las 128 palabras de 32bits de entrada, por eso es que la funcion permite ingresar la cantidad de bits a usar de la primera palabra, entonces en una codificacion que sobraron bits fuente, debe ponerse al principio de un nuevo bloque fuente e indicar la cantidad de bits que quedaron fuera.
  *
@@ -31,7 +21,11 @@ void hamming_codificar_bloque(int tam_bloque, uint32_t bloque_informacion[]) {
  *
  * @return Cantidad de bits sobrantes en la ultima palabra fuente.
  */
-uint8_t _hamming_codificar_bloque_4096(uint32_t bloque_informacion[],uint8_t bits_restantes_pInfo, uint16_t bits_restantes_total, uint32_t bloque_codificado[]) {
+uint8_t _hamming_codificar_bloque_4096(
+     uint32_t bloque_informacion[],
+     uint8_t bits_restantes_pInfo,
+     uint16_t bits_restantes_total,
+     uint32_t bloque_codificado[]) {
 	/* cuentan los bits restantes a consumir de las palabras */
 	uint8_t bits_restantes_pCod;
 
@@ -360,13 +354,16 @@ uint16_t _hamming_decodificar_bloque_8(uint16_t bloque_codificado, uint8_t *bloq
 			/*caso que el indice NO sea potencia de dos */
 			auxiliar = indice; auxiliar--;
 			if (indice & auxiliar) {
-				*bloque_informacion = *bloque_informacion << 1;
+				/* esta seccion se encarga de sacar los bits de informacion */
 
+				*bloque_informacion = *bloque_informacion << 1;
 				/*si el primer bit es 1 */
 				if (bloque_codificado & 0x8000) (*bloque_informacion)++;
 			}
 
 			if (bloque_codificado & 0x8000) {
+				/* esta seccion se encarga de calcular el sindrome*/
+
 				/* se calcula el sindrome, esto incluye a los bits de informacion como los de control */
 				sindromes = sindromes ^ indice;
 				/* se comprueba que la paridad total sea correcta */
@@ -385,33 +382,24 @@ uint16_t _hamming_decodificar_bloque_8(uint16_t bloque_codificado, uint8_t *bloq
 
 /** Lee un archivo TXT y crea uno de mismo nombre con extension HA1
  * con el contenido codificado por Hamming en bloques de 8 bits.
+ * Los punteros a archvos deben estar PREVIAMENTE abiertos.
  *
- * @param nombre_archivo Nombre del archivo a leer. No debe incluir la extension TXT.
+ * @param fuente Puntero al archivo fuente a codificar.
+ * @param destino Puntero al archivo destino.
  *
- * @return Devuelve 0 si la operacion se realizo correctamente. Devuelve 1 si se produjo algun error.
+ * @return Devuelve la cantidad de bytes de informacion leidos de 'fuente'.
  */
-int _hamming_codificar_archivo_8bits(char nombre_archivo[]) {
+int _hamming_codificar_archivo_8bits(FILE *fuente, FILE *destino) {
 	char nombre_fuente[128], nombre_destino[128];
-	FILE *fuente, *destino;
 	int byte_leido;		/*recibe si la funcion 'fread' ha leido algo del archivo fuente */
+	int bytes_leidos;	/* cuenta los bytes de informacion leidos*/
 	uint8_t lectura;
 	uint16_t escritura;
 
 
-	strcpy(nombre_fuente, nombre_archivo); strcat(nombre_fuente, ".txt");
-	strcpy(nombre_destino, nombre_archivo); strcat(nombre_destino, ".ha1");
-
-	fuente = fopen(nombre_fuente, "rb");
-
-	if (fuente == NULL) return 1;
-
-	destino = fopen(nombre_destino, "wb+");
-
-	if (destino == NULL) return 1;
-
-
 	while (!feof(fuente)) {
 		byte_leido = fread(&lectura, 1, 1, fuente);
+		bytes_leidos += byte_leido;		// actualiza la cuenta
 
 		escritura = _hamming_codificar_bloque_8(lectura);
 
@@ -419,11 +407,9 @@ int _hamming_codificar_archivo_8bits(char nombre_archivo[]) {
 		if (byte_leido) fwrite(&escritura, 2, 1, destino);
 	}
 
-	fclose(destino);
-
-	fclose(fuente);
-
-	return 0;
+	// devuelve la cantidad de bytes de informacion leidos
+	// (igual al tamanio del archivo de entrada)
+	return bytes_leidos;
 }
 
 /** Corrige un bloque de 8 bits codificado por Hamming, si este posee un solo error.
@@ -618,4 +604,91 @@ int _hamming_codificar_archivo_4096bits(char nombre_archivo[]) {
 	fclose(fuente);
 
 	return 0;
+}
+
+/** Introduce aleatoriamente un error en un bloque de 8 bits,
+ * segun la probabilidad indicada.
+ *
+ * @param bloque Puntero al bloque codificado por Hamming.
+ * @param probabilidad Probabilidad con la que aparecera el error en el bloque. Valor entre 0 y 1.
+ *
+ * @return Devuelve 1 si se introdujo el error. 0 en caso contrario.
+ */
+int _hamming_error_en_bloque_8(uint8_t *bloque, float probabilidad) {
+	/*genera un numero de punto flotante aleatorio*/
+	float azar = (float)rand() / (float)RAND_MAX;
+	int error_generado = 0;			// si el azar determina generar error, salida de funcion
+
+	/* se determina si se introducira un error en el bloque en base a 'azar',
+	 * si 'azar' es menor que probabilidad, entonces SI se introduce un error*/
+	if (azar <= probabilidad) {
+		/*se determina al azar el bit a cambiar (cantidad de shifts)*/
+		int posicion_bit = rand() % 8;
+		uint8_t mascara_error = 0x01 << posicion_bit;		// cantidad de shifts aleatoria
+		
+		*bloque = (*bloque) ^ mascara_error;
+		error_generado = 1;
+	}
+
+	return error_generado;
+}
+
+/** Introduce de manera aleatoria (a lo sumo) un error en cada bloque de un archivo codificado HA1.
+ * Genera un archivo HE1.
+ * Recibe por parametro la probabilidad con la que cada bloque recibira un error.
+ *
+ * @param nombre_fuente Nombre del archivo fuente en el que se introducira errores.
+ * @param probabilidad Valor entre 0 y 1. Valor de 1 es probabilidad total.
+ * @return Devuelve la cantidad de errores que se introdujo en el archivo. -1 en caso de error.
+ */
+int _hamming_error_en_archivo_8bits(char nombre_fuente[], float probabilidad) {
+	char nombre_destino[TAM_CADENAS_NOMBRE];		// nombre de archivo destino
+	nombre_archivo_quitar_extension(nombre_destino, nombre_fuente);	// se quita la extension HA1
+	strcat(nombre_destino, ".he1");							// se incluye la extension HE1
+	
+	FILE *archivo_fuente, *archivo_destino;
+	/* apertura y control de archivos */
+	archivo_fuente = fopen(nombre_fuente, "rb");
+	if (archivo_fuente == NULL) {
+		return -1;	// error al abrir el archivo fuente
+	}
+	archivo_destino = fopen(nombre_destino, "wb+");	// si existe lo sobreescribe
+	if (archivo_destino == NULL) {
+		return -1;	// error al crear el nuevo archivo
+	}
+
+	int cantidad_errores = 0;	// contador de errores introducidos
+	int bytes_leidos = 0;	// variable necesaria para el control de lectura
+	uint8_t bloque_codificado;
+
+	// recorrido de la fuente bloque por bloque (byte a byte)
+	while (!feof(archivo_fuente)) {
+		bytes_leidos = fread(&bloque_codificado, 1, 1, archivo_fuente);
+		// si hubo lectura de fread
+		if (bytes_leidos) {
+			// se introduce potencial error en bloque, mas incrementar la cuenta
+			cantidad_errores += _hamming_error_en_bloque_8(&bloque_codificado, probabilidad);
+
+			fwrite(&bloque_codificado, 1, 1, archivo_destino);
+		}
+	}
+
+	fclose(archivo_destino);
+	fclose(archivo_fuente);
+
+	return cantidad_errores;
+}
+
+/** Remueve la extension del nombre completo de un archivo.
+ * El resultado es copiado en otra cadena.
+ *
+ * @param destino Cadena donde se escribira el resultado.
+ * @param fuente Nombre de archivo completo (con extension).
+ */
+void nombre_archivo_quitar_extension(char destino[], char fuente[]) {
+	int caracteres_solo_extension = strlen(strrchr(fuente, '.'));
+	int caracteres_solo_nombre = strlen(fuente) - caracteres_solo_extension;
+
+	// copia el nombre sin la extension
+	strncpy(destino, fuente, caracteres_solo_nombre);
 }

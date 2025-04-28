@@ -2,6 +2,7 @@
 #define Hamming_h
 
 #include <stdint.h>
+#include <stdio.h>
 
 /* #define TAM_ARREGLO_4096 128 */
 /*DEBUG CAMBIAR DESPUES!! */
@@ -25,10 +26,10 @@ enum hamming_estados_bloque{ EST_SINERROR, EST_UN_ERROR, EST_DOS_ERRORES };
 
 
 uint16_t _hamming_codificar_bloque_8(uint8_t );
-/* void _hamming_codificar_bloque_4096(uint32_t [], uint32_t []); */
+
 uint8_t _hamming_codificar_bloque_4096(uint32_t [],uint8_t , uint16_t , uint32_t []);
 
-int _hamming_codificar_archivo_8bits(char []);
+int _hamming_codificar_archivo_8bits(FILE *, FILE *);
 
 int _hamming_codificar_archivo_4096bits(char []);
 
@@ -38,7 +39,13 @@ uint16_t _hamming_decodificar_bloque_4096(uint32_t [], uint8_t ,uint32_t []);
 
 int _hamming_decodificar_archivo_8bits(char []);
 
+int _hamming_error_en_bloque_8(uint8_t *,float);
+
+int _hamming_error_en_archivo_8bits(char [], float);
+
 void _hamming_corregir_bloque_8(uint8_t *, uint16_t , int []);
 
+// funciones adicionales
+void nombre_archivo_quitar_extension(char [], char []);
 
 #endif  
