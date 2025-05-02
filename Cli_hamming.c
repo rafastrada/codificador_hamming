@@ -35,12 +35,18 @@ int main(int argc, char *argv[])
 		printf("Formato de argumentos del programa:\n"
 				"cli_hamming.exe OPERACION ...\n\n"
 				"Operaciones disponibles:\n"
+				//codificar
 				"\tcodificar (8|256|4096) (nombre_archivo)\n"
 				"\t\"Codifica el archivo con codigos de Hamming en el "
 				"tamanio de bloque indicado\"\n\n"
+				//alterar
 				"\talterar (nombre_archivo) (probabilidad)\n"
 				"\t\"Introduce errores en el archivo indicado segun 'probabilidad',"
 				" (valor entre 0 y 1)\"\n\n"
+				//decodificar
+				"\tdecodificar (nombre_archivo)\n"
+				"\t\"Decodifica el archivo indicado y escribe la informacion en dos\n"
+				"\tnuevos archivos, uno sin corregir y el otro corregido\"\n\n"
 				);
 
 	}
@@ -107,8 +113,32 @@ int main(int argc, char *argv[])
 						  );
 					return EXIT_FAILURE;
 			}
+		// -------------------------------------------------------
+		// funcion DECODIFICAR
+		// cli_hamming.exe | 'codificar' | nom_archivo
+		} else if (strcmp(argv[1], "decodificar") == 0 && argc == 3) {
+			//copia en limpio de nombre 'nom_archivo'
+			strncpy(nombre_archivo_entrada, argv[2], TAM_CADENAS_NOMBRE);
+			
+			// se captura la extension del archivo para determinar el tamanio de bloque,
+			// y utilizar el metodo de decodificacion correspondiente
+			int extension_nombre_archivo =
+				tipo_ext_nombre_archivo(nombre_archivo_entrada);
+			
+			switch (extension_nombre_archivo) {
+				case HA1:
+				case HE1:
+					// decodificacion de bloques de 8 bits
+					_hamming_decodificar_archivo_8bits(nombre_archivo_entrada);
+					break;
+					
+				/*si el archivo no tiene una extension valida*/
+				default:
+					printf("\nDebe ingresar un archivo de formato .ha_ o .he_ !\n");
+					return EXIT_FAILURE;
+			}
 		}
-		}
+	}
 
 	return EXIT_SUCCESS;
 }

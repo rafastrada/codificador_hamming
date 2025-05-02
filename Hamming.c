@@ -440,56 +440,60 @@ int _hamming_codificar_archivo_8bits(char nombre_fuente[]) {
  */
 void _hamming_corregir_bloque_8(uint16_t *bloques, uint16_t sindromes, int estado[]) {
 	uint16_t paridad_izq, paridad_der,
-			 pos_error_izq, pos_error_der,
-			 auxiliar;
-	uint8_t estado_izq, estado_der;
+			 pos_error_izq, pos_error_der;
 
 	/*se separan el bit de paridad total y los bits de control */
 	//derecha
 	paridad_der = sindromes & 0x80; pos_error_der = sindromes & 0x7f;
 	// izquierda
-	paridad_izq = sindromes & 0x8000; pos_error_izq = ((sindromes >> 8) & 0x7f);
+	sindromes = sindromes >> 8;
+	paridad_izq = sindromes & 0x80; pos_error_izq = sindromes & 0x7f;
 
 	// BLOQUE DERECHO
-	/*caso que corresponda la paridad total */
-	if (!paridad_der) {
-		if (pos_error_der) {
+	// ---------------------------------------------
+	/* si el sindrome NO es cero */
+	if (pos_error_der) {
 		/* - 0x100 porque el xor se realiza en el bloque derecho de los 16 bits de 'bloques'.
 		 * - se disminuye la posicion en 1 porque si este fuese el primer bit no se realiza shift.
 		 * */
-				*bloques = (*bloques) ^ ((0x100 << --pos_error_der));
-
-			// se indica el tipo de error
-			estado[0] = EST_UN_ERROR;
-		} else estado[0] = EST_SINERROR;	// caso sin errores
+				*bloques = (*bloques) ^ ((0x1 << --pos_error_der));	
 	} else {
 		/* si la paridad total no corresponde, y el sindrome es cero,
 		 * caso cuando el error se produce en el bit de paridad */
-		if (!pos_error_der) {
-			*bloques = (*bloques) ^ 0x8000;
-			estado[0] = EST_UN_ERROR;
-		} else estado[0] = EST_DOS_ERRORES;	// caso de dos errores
+		if (!paridad_der)
+			*bloques = (*bloques) ^ 0x80;
 	}
+	/* se indica el tipo de error */
+	// caso: si hubo algun error
+	if (pos_error_der || paridad_der) {
+		// caso: si el sindrome Y el bit de paridad indican error
+		if (pos_error_der && paridad_der) estado[1] = EST_UN_ERROR;
+		else estado[1] = EST_DOS_ERRORES;
+	// caso: sin errores
+	} else estado[1] = EST_SINERROR;
 
 	// BLOQUE IZQUIERDO
-	/*caso que corresponda la paridad total */
-	if (!paridad_izq) {
-		if (pos_error_izq) {
-		/* se disminuye la posicion en 1 porque si este fuese el primer bit no se realiza shift.
+	// ---------------------------------------------
+	/* si el sindrome NO es cero */
+	if (pos_error_izq) {
+		/* - 0x100 porque el xor se realiza en el bloque derecho de los 16 bits de 'bloques'.
+		 * - se disminuye la posicion en 1 porque si este fuese el primer bit no se realiza shift.
 		 * */
-				*bloques = (*bloques) ^ ((0x1 << --pos_error_izq));
-
-			// se indica el tipo de error
-			estado[1] = EST_UN_ERROR;
-		} else estado[1] = EST_SINERROR;	// caso sin errores
+				*bloques = (*bloques) ^ ((0x100 << --pos_error_izq));	
 	} else {
 		/* si la paridad total no corresponde, y el sindrome es cero,
 		 * caso cuando el error se produce en el bit de paridad */
-		if (!pos_error_der) {
-			*bloques = (*bloques) ^ 0x80;
-			estado[1] = EST_UN_ERROR;
-		} else estado[1] = EST_DOS_ERRORES;	// caso de dos errores
+		if (!paridad_izq)
+			*bloques = (*bloques) ^ 0x8000;
 	}
+	/* se indica el tipo de error */
+	// caso: si hubo algun error
+	if (pos_error_izq || paridad_izq) {
+		// caso: si el sindrome Y el bit de paridad indican error
+		if (pos_error_izq && paridad_izq) estado[0] = EST_UN_ERROR;
+		else estado[0] = EST_DOS_ERRORES;
+	// caso: sin errores
+	} else estado[0] = EST_SINERROR;
 }
 
 /** Decodifica un archivo HA1 o HE1, creando dos archivos DE1 y DC1 sin corregir y
@@ -503,8 +507,8 @@ int _hamming_decodificar_archivo_8bits(char nombre_fuente[]) {
 		nombre_destino_corregido[TAM_CADENAS_NOMBRE];
 
 	/*se crean los nombres de los archivos */
-	strcpy(nombre_destino_error, nombre_fuente);
-	strcpy(nombre_destino_corregido, nombre_fuente);
+	nombre_archivo_quitar_extension(nombre_destino_error, nombre_fuente);
+	nombre_archivo_quitar_extension(nombre_destino_corregido, nombre_fuente);
 	strcat(nombre_destino_error, ".de1");
 	strcat(nombre_destino_corregido, ".dc1");
 
