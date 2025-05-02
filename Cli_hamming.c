@@ -57,7 +57,7 @@ int main(int argc, char *argv[])
 		if (strcmp(argv[1], "codificar") == 0 &&
 				argc == 4) {	//controla cantidad de parametros
 
-			int bytes_informacion = 0;		// tamanio de archivo de informacion de entrada,
+			int bloques_escritos = 0;		// cantidad de bloques escritos,
 											// usado para imprimir en pantalla.
 
 			// copia el 4to parametro, que deberia ser el nombre del archivo
@@ -74,14 +74,28 @@ int main(int argc, char *argv[])
 			if (strcmp(argv[2], "8") == 0) {
 														//
 				//codificacion del archivo de entrada
-				bytes_informacion = _hamming_codificar_archivo_8bits(nombre_archivo_entrada);
+				bloques_escritos = _hamming_codificar_archivo_8bits(nombre_archivo_entrada);
 				
 				printf(
 						"\nSe codifico el archivo '%s' con bloques de 8 bits.\n"
 						"Se creo un archivo de formato HA1 con el mismo nombre.\n"
-						"Tamanio de archivo de salida: %d\n",
+						"Cantidad de bloques en el archivo de salida: %d\n",
 						nombre_archivo_entrada,
-						bytes_informacion
+						bloques_escritos
+					  );
+			}
+			// bloques de 4096bits
+			else if (strcmp(argv[2],"4096") == 0) {
+				// codificacion del archivo de entrada
+				bloques_escritos =
+					_hamming_codificar_archivo_4096bits(nombre_archivo_entrada);
+				
+				printf(
+						"\nSe codifico el archivo '%s' con bloques de 4096 bits.\n"
+						"Se creo un archivo de formato HA2 con el mismo nombre.\n"
+						"Cantidad de bloques en el archivo de salida: %d\n",
+						nombre_archivo_entrada,
+						bloques_escritos
 					  );
 			}
 		}

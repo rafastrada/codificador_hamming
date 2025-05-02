@@ -14,7 +14,11 @@
 
 
 /** Funcion que codifica una fuente de informacion con Hamming en un arreglo nuevo.
- * La funcion puede no utilizar las 128 palabras de 32bits de entrada, por eso es que la funcion permite ingresar la cantidad de bits a usar de la primera palabra, entonces en una codificacion que sobraron bits fuente, debe ponerse al principio de un nuevo bloque fuente e indicar la cantidad de bits que quedaron fuera.
+ * La funcion puede no utilizar las 128 palabras de 32bits de entrada,
+ * por eso es que la funcion permite ingresar la cantidad de bits a usar
+ * de la primera palabra, entonces en una codificacion que sobraron bits fuente,
+ * debe ponerse al principio de un nuevo bloque fuente e indicar la
+ * cantidad de bits que quedaron fuera.
  *
  * @param bits_restantes_pInfo Cantidad de bits fuente de la primera palabra del arreglo fuente. Debe ser entre 1 y 32.
  * @param bits_restantes_total Cantidad de bits de infomrmacion. Debe ser entre 1 y 4083.
@@ -396,7 +400,7 @@ int _hamming_codificar_archivo_8bits(char nombre_fuente[]) {
 	char nombre_destino[TAM_CADENAS_NOMBRE];
 	FILE *fuente, *destino;
 	int byte_leido;		/*recibe si la funcion 'fread' ha leido algo del archivo fuente */
-	int bytes_leidos;	/* cuenta los bytes de informacion leidos*/
+	int bloques_escritos = 0;	/* cuenta los bloques escritos en destino*/
 	uint8_t lectura;
 	uint16_t escritura;
 
@@ -415,20 +419,24 @@ int _hamming_codificar_archivo_8bits(char nombre_fuente[]) {
 
 	while (!feof(fuente)) {
 		byte_leido = fread(&lectura, 1, 1, fuente);
-		bytes_leidos += byte_leido;		// actualiza la cuenta
 
 		escritura = _hamming_codificar_bloque_8(lectura);
 
 		/*El control es necesario ya que antes de llegar a EOF la funcion 'fread' intenta leer, devolviento 0 elementos leidos */
-		if (byte_leido) fwrite(&escritura, 2, 1, destino);
+		if (byte_leido) {
+			fwrite(&escritura, 2, 1, destino);
+			++bloques_escritos;
+		}
 	}
 
 	fclose(destino);
 	fclose(fuente);
-
-	// devuelve la cantidad de bytes de informacion leidos
-	// (igual al tamanio del archivo de entrada)
-	return bytes_leidos;
+	
+	// se escriben de a dos bloques por vez en destino,
+	// por lo tanto se acomoda la cantidad
+	bloques_escritos *= 2;
+	// devuelve la cantidad de bloques escritos
+	return bloques_escritos;
 }
 
 /** Corrige dos bloques consecutivos de 8 bits (uint16_t) codificado por Hamming, si este posee un solo error.
@@ -558,31 +566,45 @@ int _hamming_decodificar_archivo_8bits(char nombre_fuente[]) {
 }
 
 /** Codifica un archivo TXT por Hamming en bloques de 4096 bits en un archivo HA2.
+ * Nota: no se realiza control sobre la extension.
  *
- * @param nombre_archivo Nombre del archivo TXT a codificar. No incluir extension.
+ * @param nombre_fuente Nombre del archivo TXT a codificar.
  *
- * @return Devuelve 0 si hubo exito en la lectura y escritura de los archivos. Devuelve 1 en caso contrario.
+ * @return Devuelve la cantidad de bloques resultantes. -1 en caso de error.
  */
-int _hamming_codificar_archivo_4096bits(char nombre_archivo[]) {
-	char nombre_fuente[TAM_CADENAS_NOMBRE], nombre_destino[TAM_CADENAS_NOMBRE];
+int _hamming_codificar_archivo_4096bits(char nombre_fuente[]) {
+	char nombre_destino[TAM_CADENAS_NOMBRE];
+	int contador_bloques_salida = 0;	// usado para devolver cuantos bloques se escribieron
 	FILE *fuente, *destino;
-	uint32_t bloque_leido[TAM_ARREGLO_4096 + 1], bloque_codificado[TAM_ARREGLO_4096];
-	uint32_t bytes_leidos, bits_a_codificar = 0, bytes_a_leer;
+	uint32_t bloque_leido[TAM_ARREGLO_4096 + 1], bloque_codificado[TAM_ARREGLO_4096];	// buffers
+	uint32_t bytes_leidos, bits_a_codificar = 0, bits_a_codificar_backup = 0, bytes_a_leer;
 	uint8_t bits_sobrantes = 0;
+	uint32_t cabecera_destino[2] = {0,0};	/* Inicio de archivo destino.
+											* El primer numero indica la cantidad de bloques,
+											* el segundo la cantidad de bits de informacion
+											* en el ultimo bloque*/
 
-	strcpy(nombre_fuente, nombre_archivo); strcat(nombre_fuente, ".txt");
-	strcpy(nombre_destino, nombre_archivo); strcat(nombre_destino, ".ha2");
-
+	// definicion de nombre de archivo destino
+	nombre_archivo_quitar_extension(nombre_destino, nombre_fuente);
+	strcat(nombre_destino, ".ha2");
+	
+	/* apertura de archivos*/
 	fuente = fopen(nombre_fuente, "rb");
-
-	if (fuente == NULL) return 1;	/*error */
+	if (fuente == NULL) return -1;	/*error */
 
 	destino = fopen(nombre_destino, "wb+");
+	if (destino == NULL) return -1;
+	// se inserta el espacio para la cabecera en el archivo destino
+	fwrite(cabecera_destino,SIZEOF_UINT32,2,destino);
 
-	if (destino == NULL) return 1;
-
-
+	// hasta final del archivo fuente
 	while (!feof(fuente)) {
+		/* Copia de bits_a_escribir antes de actualizar su valor.
+		 * Al llegar al final del archivo puede leerse 0 bytes antes de feof()
+		 * y escribirse incorrectamente un nuevo bloque, se conserva los
+		 * bits escritos en el bloque anterior para incluir en la cabecera.*/
+		bits_a_codificar_backup = bits_a_codificar;
+		
 		
 		/*al ir leyendo mas bits de informacion de los que se usan, los sobrantes se van
 		 * acumulando, cuando sobra una palabra entera sin usarse, se lee una palabra menos
@@ -605,23 +627,44 @@ int _hamming_codificar_archivo_4096bits(char nombre_archivo[]) {
 
 		if (bits_a_codificar > NUM_BITS_INFO_4096) bits_a_codificar = NUM_BITS_INFO_4096;
 
+		printf("\nbits a codificar: %d",bits_a_codificar);
+		printf("\nbits sobrantes: %d",bits_sobrantes);
+		printf("\nbytes leidos: %d",bytes_leidos);
+		
 		bits_sobrantes = _hamming_codificar_bloque_4096(bloque_leido,
 				bits_sobrantes, 
 				bits_a_codificar, 
 				bloque_codificado);
 
-		if (bits_a_codificar) fwrite(bloque_codificado, SIZEOF_UINT32, 2, destino);
-		/* if (bytes_leidos) fwrite(bloque_codificado, sizeof(uint32_t), 128, destino); */
+		// se escribe en el archivo de salida
+		if (bits_a_codificar) {
+			fwrite(bloque_codificado, SIZEOF_UINT32, TAM_ARREGLO_4096, destino);
+			++contador_bloques_salida;	// se aumenta el contador
+		}
 
 		/*se mueve la ultima palabra al inicio para usar los bits que quedaron sin leer */
 		bloque_leido[0] = bloque_leido[TAM_ARREGLO_4096];
 			
 	}
-
-	fclose(destino);
+	
 	fclose(fuente);
+	
+	/* se definen los valores de la cabecera
+	 * */
+	cabecera_destino[0] = (uint32_t) contador_bloques_salida;
+	// caso: se codifico el ultimo bloque justo antes de feof()
+	if (bits_a_codificar) cabecera_destino[1] = bits_a_codificar;
+	// caso: fread leyo 0 bytes, no se escribio nuevo bloque pero se actualizo bits_a_codificar
+	else cabecera_destino[1] = bits_a_codificar_backup;
+	
+	/*se vuelve al inicio del archivo y se escribe la cabecera*/
+	rewind(destino);
+	fwrite(cabecera_destino,SIZEOF_UINT32,2,destino);
+	
+	fclose(destino);
 
-	return 0;
+	// se devuelve cuantos bloques posee el archivo de salida
+	return contador_bloques_salida;
 }
 
 /** Introduce aleatoriamente un error en un bloque de 8 bits,
