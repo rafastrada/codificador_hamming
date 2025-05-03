@@ -92,7 +92,7 @@ int main(int argc, char *argv[])
 				
 				printf(
 						"\nSe codifico el archivo '%s' con bloques de 4096 bits.\n"
-						"Se creo un archivo de formato HA2 con el mismo nombre.\n"
+						"Se creo un archivo de formato HA3 con el mismo nombre.\n"
 						"Cantidad de bloques en el archivo de salida: %d\n",
 						nombre_archivo_entrada,
 						bloques_escritos
@@ -145,7 +145,12 @@ int main(int argc, char *argv[])
 					// decodificacion de bloques de 8 bits
 					_hamming_decodificar_archivo_8bits(nombre_archivo_entrada);
 					break;
-					
+				case HA3:
+				case HE3:
+					// decodificacion de bloques de 4096
+					_hamming_decodificar_archivo_4096bits(nombre_archivo_entrada);
+					break;
+				
 				/*si el archivo no tiene una extension valida*/
 				default:
 					printf("\nDebe ingresar un archivo de formato .ha_ o .he_ !\n");

@@ -37,6 +37,8 @@ uint16_t _hamming_decodificar_bloque_8(uint16_t , uint8_t *);
 
 uint16_t _hamming_decodificar_bloque_4096(uint32_t [], uint8_t ,uint32_t []);
 
+int _hamming_decodificar_archivo_4096bits(char []);
+
 int _hamming_decodificar_archivo_8bits(char []);
 
 int _hamming_error_en_bloque_8(uint8_t *,float);

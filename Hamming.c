@@ -244,6 +244,107 @@ uint16_t _hamming_decodificar_bloque_4096(uint32_t bloque_codificado[],
 	return sindrome;
 }
 
+/** Lee un archivo en formato HA2 o HE2 y decodifica los bits de informacion.
+ * Crea dos archivos, uno con la informacion directa, y otro corregido.
+ * 
+ * @param nombre_archivo Nombre de archivo a decodificar.
+ * 
+ * @return -1 en caso de error al abrir archivos o en el formato del archivo fuente.
+ */
+int _hamming_decodificar_archivo_4096bits(char nombre_fuente[]) {
+	char nombre_destino_error[TAM_CADENAS_NOMBRE],
+		nombre_destino_corregido[TAM_CADENAS_NOMBRE];
+	FILE *fuente, *destino_error, *destino_corregido;
+	
+	uint32_t cantidad_bloques, bits_info_ultimo_bloque;
+	uint32_t bloque_fuente[TAM_ARREGLO_4096], informacion[TAM_ARREGLO_4096+1];
+	uint32_t *informacion_buffer, *informacion_incompleto;
+	uint16_t sindrome;
+	uint8_t bits_restantes = 0;
+	int palabras_leidas, palabras_a_escribir;
+	int auxiliar = 0;	
+	
+	// definicion de nombres de archivos destino
+	nombre_archivo_quitar_extension(nombre_destino_error,nombre_fuente);
+	nombre_archivo_quitar_extension(nombre_destino_corregido,nombre_fuente);
+	strcat(nombre_destino_error,".de3");
+	strcat(nombre_destino_corregido,".dc3");
+	
+	/* apertura de archivos */
+	fuente = fopen(nombre_fuente,"rb");
+	if (fuente == NULL) return -1;
+	destino_error = fopen(nombre_destino_error,"wb+");
+	if (destino_error == NULL) return -1;
+	destino_corregido = fopen(nombre_destino_corregido,"wb+");
+	if (destino_corregido == NULL) return -1;
+	
+	{
+	/* Lectura de cabecera de archivo codificado*/
+	uint32_t cabecera_fuente[2];
+	palabras_leidas = fread(cabecera_fuente,SIZEOF_UINT32,2,fuente);
+	if (palabras_leidas != 2) return -1;	// si no se pudo leer la cabecera
+	// se guardan los valores en las variables correspondientes
+	cantidad_bloques = cabecera_fuente[0];
+	bits_info_ultimo_bloque = cabecera_fuente[1];
+	}
+	
+	//DEBUG
+	printf("bits info ultimo bloque: %d\n",bits_info_ultimo_bloque);
+	
+	//recorrido del archivo fuente
+	while (!feof(fuente)) {
+		palabras_leidas = fread(bloque_fuente,SIZEOF_UINT32,TAM_ARREGLO_4096,fuente);
+		// control de lectura cero antes de feof()
+		if (palabras_leidas) {
+			sindrome = 		// decodificacion
+				_hamming_decodificar_bloque_4096(
+				bloque_fuente,bits_restantes,informacion);
+			
+			// cabeza del buffer, donde empieza la primera palabra completa
+			if (!bits_restantes) informacion_buffer = informacion+1;
+			else informacion_buffer = informacion;
+			
+			/* Escritura de decodificacion*/
+			if (cantidad_bloques!=1) {// caso: NO es el ultimo bloque
+				palabras_a_escribir = (auxiliar + NUM_BITS_INFO_4096) / 32;
+				
+				fwrite(informacion_buffer,SIZEOF_UINT32,palabras_a_escribir,destino_error);
+				fwrite(informacion_buffer,SIZEOF_UINT32,palabras_a_escribir,destino_corregido);
+			}
+			else {
+				palabras_a_escribir = 
+					(int) ceil((double) bits_info_ultimo_bloque / 8);
+				if (bits_restantes) palabras_a_escribir += 4;
+									
+				fwrite(informacion_buffer,SIZEOF_UINT8,palabras_a_escribir,destino_error);
+				fwrite(informacion_buffer,SIZEOF_UINT8,palabras_a_escribir,destino_corregido);
+			}
+			
+			//DEBUG
+			printf("\ncantidad bloques: %d\n",cantidad_bloques);
+			printf("bits_restantes %d\n",bits_restantes);
+			printf("palabras a escribir: %d\n",palabras_a_escribir);
+			
+			// se mueve la palabra incompleta al inicio del arreglo
+			informacion_incompleto = informacion_buffer + palabras_a_escribir;
+			informacion[0] = *informacion_incompleto;
+			
+			/* Determinar los bits faltantes para llegar a los 4096 de informacion
+			 * en proxima iteracion*/
+			auxiliar = 32 - ((auxiliar + NUM_BITS_INFO_4096) % 32);
+			bits_restantes = auxiliar;	//operacion redundante sobre auxiliar por las dudas
+			
+			--cantidad_bloques;
+		}
+	}
+	
+	fclose(destino_corregido);
+	fclose(destino_error);
+	fclose(fuente);
+	
+	return 0;
+}
+
 
 /* Funcion privada para codificar unicamente bloques de 8 bits.
  *
@@ -586,7 +687,7 @@ int _hamming_codificar_archivo_4096bits(char nombre_fuente[]) {
 
 	// definicion de nombre de archivo destino
 	nombre_archivo_quitar_extension(nombre_destino, nombre_fuente);
-	strcat(nombre_destino, ".ha2");
+	strcat(nombre_destino, ".ha3");
 	
 	/* apertura de archivos*/
 	fuente = fopen(nombre_fuente, "rb");
