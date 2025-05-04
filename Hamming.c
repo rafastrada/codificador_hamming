@@ -273,9 +273,9 @@ int _hamming_decodificar_archivo_4096bits(char nombre_fuente[]) {
 	/* apertura de archivos */
 	fuente = fopen(nombre_fuente,"rb");
 	if (fuente == NULL) return -1;
-	destino_error = fopen(nombre_destino_error,"wb+");
+	destino_error = fopen(nombre_destino_error,"wb");
 	if (destino_error == NULL) return -1;
-	destino_corregido = fopen(nombre_destino_corregido,"wb+");
+	destino_corregido = fopen(nombre_destino_corregido,"wb");
 	if (destino_corregido == NULL) return -1;
 	
 	{
@@ -514,7 +514,7 @@ int _hamming_codificar_archivo_8bits(char nombre_fuente[]) {
 	// en caso de error la funcion termina, retornando -1
 	fuente = fopen(nombre_fuente, "rb");
 	if (fuente == NULL) return -1;
-	destino = fopen(nombre_destino, "wb+");
+	destino = fopen(nombre_destino, "wb");
 	if (destino == NULL) return -1;
 
 
@@ -693,7 +693,7 @@ int _hamming_codificar_archivo_4096bits(char nombre_fuente[]) {
 	fuente = fopen(nombre_fuente, "rb");
 	if (fuente == NULL) return -1;	/*error */
 
-	destino = fopen(nombre_destino, "wb+");
+	destino = fopen(nombre_destino, "wb");
 	if (destino == NULL) return -1;
 	// se inserta el espacio para la cabecera en el archivo destino
 	fwrite(cabecera_destino,SIZEOF_UINT32,2,destino);
@@ -727,10 +727,6 @@ int _hamming_codificar_archivo_4096bits(char nombre_fuente[]) {
 		bits_a_codificar = (bytes_leidos << 3) + bits_sobrantes; 	/*multiplicar por 8 */
 
 		if (bits_a_codificar > NUM_BITS_INFO_4096) bits_a_codificar = NUM_BITS_INFO_4096;
-
-		printf("\nbits a codificar: %d",bits_a_codificar);
-		printf("\nbits sobrantes: %d",bits_sobrantes);
-		printf("\nbytes leidos: %d",bytes_leidos);
 		
 		bits_sobrantes = _hamming_codificar_bloque_4096(bloque_leido,
 				bits_sobrantes, 
@@ -814,7 +810,7 @@ int _hamming_error_en_archivo_8bits(char nombre_fuente[], float probabilidad) {
 	if (archivo_fuente == NULL) {
 		return -1;	// error al abrir el archivo fuente
 	}
-	archivo_destino = fopen(nombre_destino, "wb+");	// si existe lo sobreescribe
+	archivo_destino = fopen(nombre_destino, "wb");	// si existe lo sobreescribe
 	if (archivo_destino == NULL) {
 		return -1;	// error al crear el nuevo archivo
 	}
