@@ -849,4 +849,5 @@ void nombre_archivo_quitar_extension(char destino[], char fuente[]) {
 
 	// copia el nombre sin la extension
 	strncpy(destino, fuente, caracteres_solo_nombre);
+	destino[caracteres_solo_nombre] = '\0';
 }
