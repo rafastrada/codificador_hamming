@@ -19,10 +19,32 @@
 #define SIZEOF_UINT16 2
 #define SIZEOF_UINT8 1
 
+//bloques de 256
+#define NUM_BITS_TOTAL_256 256
+#define TAM_ARREGLO_256 32
+#define NUM_BITS_INFO_256 247
+#define NUM_BITS_CONTROL_256 8
 
 enum hamming_tam_bloque{ HAM8, HAM256, HAM4096 };
 
 enum hamming_estados_bloque{ EST_SINERROR, EST_UN_ERROR, EST_DOS_ERRORES };
+
+struct palabra_buffer {
+	uint8_t p;
+	short int bits_restantes;
+};
+
+struct buffer_bits {
+	uint8_t *palabras;		// puntero a base de arreglo de palabras
+	const unsigned int tam_palabras;	// tamanio de arreglo de palabras
+	uint8_t *palabra_inicio, *palabra_ultima;
+	short int palabra_inicio_bits;	// bits disponibles en la palabra de inicio
+	short int palabra_ultima_bits;
+};
+
+
+// para bloques de 256
+int _hamming_codificar_bloque_256(struct buffer_bits *, struct buffer_bits *, int);
 
 
 uint16_t _hamming_codificar_bloque_8(uint8_t );

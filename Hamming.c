@@ -171,6 +171,145 @@ uint8_t _hamming_codificar_bloque_4096(
 }
 
 
+int _hamming_codificar_bloque_256(
+		struct buffer_bits *informacion,
+		struct buffer_bits *bloque_codificado,
+		int bits_restantes_total) {
+
+	uint8_t *ptr_buffer_informacion, *ptr_buffer_codificado;
+	struct palabra_buffer p_informacion,p_codificada;
+	uint16_t bits_control = 0x0;
+	uint8_t paridad_total = 0x0;
+
+
+	ptr_buffer_informacion = informacion->palabra_inicio;
+	ptr_buffer_codificado = bloque_codificado->palabra_inicio;
+
+	p_informacion.p = *ptr_buffer_informacion;
+	p_informacion.bits_restantes = informacion->palabra_inicio_bits;
+	p_codificada.p = 0x0;
+	p_codificada.bits_restantes = 8;
+
+	int indice = NUM_BITS_TOTAL_256;
+
+	while (bits_restantes_total && indice) {
+
+		if (!p_informacion.bits_restantes) {
+			++ptr_buffer_informacion;
+			p_informacion.p = *ptr_buffer_informacion;
+			p_informacion.bits_restantes = 8;
+		}
+
+		if (!p_codificada.bits_restantes) {
+			*ptr_buffer_codificado = p_codificada.p;
+			++ptr_buffer_codificado;
+
+			p_codificada.p = 0x0;
+			p_codificada.bits_restantes = 8;
+		}
+
+		p_codificada.p = p_codificada.p << 1;
+		--(p_codificada.bits_restantes);
+	
+		uint8_t bit_extraido;
+		// si no es potencia de 2 
+		if (indice & (indice-1)) {
+			bit_extraido = p_informacion.p & 0x80;	// se extrae el primer bit
+
+			// si el bit no es cero
+			if (bit_extraido) {
+				// calculo de bits de control
+				bits_control = bits_control ^ indice;
+				// calculo de paridad total
+				paridad_total = paridad_total ^ 0x80;
+
+				// se agrega el bit a la palabra codificada
+				++(p_codificada.p);
+			}
+
+			// se desplaza el bit extraido
+			p_informacion.p = p_informacion.p << 1;
+			--(p_informacion.bits_restantes);
+
+			// se reduce los bits restantes de informacion a codificar
+			--bits_restantes_total;
+		}
+
+		// se pasa al siguiente indice
+		--indice;
+	}
+
+	// se actualiza en el buffer la ultima palabra utilizada
+	informacion->palabra_ultima = ptr_buffer_informacion;
+	informacion->palabra_ultima_bits = p_informacion.bits_restantes;
+
+
+	// si los bits de info se acabaron, se completa el resto con ceros
+	while (indice) {
+		// si quedaban bits disponibles en la palabra codificada
+		if (p_codificada.bits_restantes) {
+			p_codificada.p = p_codificada.p << p_codificada.bits_restantes;
+			indice -= p_codificada.bits_restantes;
+			p_codificada.bits_restantes = 0;
+
+			*ptr_buffer_codificado = p_codificada.p;
+			++ptr_buffer_codificado;
+			indice -= 8;
+		}
+
+		// se completa el resto del bloque codificado con ceros
+		// caso: el puntero no llega al final del buffer
+		if (ptr_buffer_codificado - bloque_codificado->palabras
+				< (bloque_codificado->tam_palabras)) {
+			*ptr_buffer_codificado = 0x0;
+			++ptr_buffer_codificado;
+			indice -= 8;
+		}
+	}
+
+	// posible caso de error
+	// (si todo anda bien no deberia pasar, pero no esta de mas)
+	if (indice != 0) return -1;
+
+
+	// proceso de incluir los bits de control al bloque.
+	uint16_t mascara_bit_control = 0x1 << (NUM_BITS_CONTROL_256 - 1);
+	// se agregan los bits de control al bloque.
+	// caso: mientras la mascara no sea cero
+	while (mascara_bit_control) {
+		// caso: si el bit de control es 1
+		if (bits_control & mascara_bit_control) {
+			// indice arreglo: en que palabra del buffer va el bit
+			int indice_arreglo = (mascara_bit_control-1) / 8;
+			indice_arreglo = (bloque_codificado->tam_palabras - 1) - indice_arreglo;	// se invierte
+
+			// posicion palabra: la posicion del bit en la palabra
+			int posicion_palabra = (mascara_bit_control-1) % 8;
+			uint8_t bit_control = 0x1 << posicion_palabra;
+
+			// se agrega el bit en el bloque codificado
+			ptr_buffer_codificado = bloque_codificado->palabras + indice_arreglo;
+			*ptr_buffer_codificado = *ptr_buffer_codificado | bits_control;
+			
+			// se actualiza el bit de paridad total
+			paridad_total = paridad_total ^ 0x80;
+		}
+
+		// se pasa al siguiente bit de control
+		mascara_bit_control = mascara_bit_control >> 1;
+	}
+
+	// por ultimo, se introdude el bit de paridad total,
+	// el cual va al inicio
+	ptr_buffer_codificado = bloque_codificado->palabras;	// indice 0
+	*ptr_buffer_codificado = *ptr_buffer_codificado | paridad_total;
+
+	// retorna 0 si la operacion se realizo correctamente
+	return 0;
+}
+
+
+
 /** 
  *
  * @param bloque_codificado Bloque de 4096 bits a decodificar.
