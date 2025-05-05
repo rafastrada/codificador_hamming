@@ -308,6 +308,82 @@ int _hamming_codificar_bloque_256(
 	return 0;
 }
 
+void buffer_bits_init(struct buffer_bits *buffer) {
+	buffer->palabras =
+		(uint8_t *) malloc(sizeof(uint8_t) *
+				buffer->tam_palabras);
+
+	buffer->palabra_inicio = buffer->palabras;
+	buffer->palabra_inicio_bits = 0;
+
+	buffer->palabra_ultima = buffer->palabras + (buffer->tam_palabras - 1);
+	buffer->palabra_ultima_bits = 0;
+}
+
+void buffer_bits_free(struct buffer_bits *buffer) {
+	free((void *) buffer->palabras);
+
+	buffer->palabra_ultima = NULL;
+	buffer->palabra_inicio = NULL;
+	buffer->palabra_ultima_bits = 0;
+	buffer->palabra_inicio_bits = 0;
+}
+
+int _hamming_codificar_archivo_256(char nombre_fuente[]) {
+	char nombre_destino[TAM_CADENAS_NOMBRE];
+	FILE *fuente, *destino;
+
+	// definicion nombre de archivo destino
+	nombre_archivo_quitar_extension(nombre_destino, nombre_fuente);
+	strcat(nombre_destino, ".ha2");
+
+	// apertura de archivos
+	fuente = fopen(nombre_fuente, "rb");
+	if (fuente == NULL) return -1;
+	destino = fopen(nombre_destino, "wb");
+	if (destino == NULL) return -1;
+
+	// iniciacion de buffers
+	struct buffer_bits informacion_fuente = {
+		.tam_palabras = TAM_ARREGLO_256 * 2
+	}, codificacion_destino = {
+		.tam_palabras = TAM_ARREGLO_256
+	};
+	buffer_bits_init(&informacion_fuente);
+	buffer_bits_init(&codificacion_destino);
+	informacion_fuente.palabra_inicio = informacion_fuente.palabras + 8;
+	uint8_t *ptr_informacion_fuente = informacion_fuente.palabra_inicio;
+
+
+	// cabecera del archivo
+	uint32_t cabecera[2] = {0,0};
+	{	// control de escritura correcta
+		int cabecera_escrita = 
+			fwrite(&cabecera, SIZEOF_UINT32, 2, destino);
+		if (cabecera_escrita != 2) return -1;
+	}
+
+	// recorrido del archivo a codificar
+	int bytes_leidos = 0, bits_a_codificar;
+	while (!feof(fuente)) {
+		// si sobraron bits del bloque codificado anteriormente
+		//if ();
+		//
+		//TERMINAR
+		// lectura del archivo
+		bytes_leidos = fread(ptr_informacion_fuente, 1, TAM_ARREGLO_256, fuente);
+
+		bits_a_codificar = 0;
+	}
+
+	fclose(destino);
+	fclose(fuente);
+
+	buffer_bits_free(&informacion_fuente);
+	buffer_bits_free(&codificacion_destino);
+
+	return 0;
+}
 
 
 /** 

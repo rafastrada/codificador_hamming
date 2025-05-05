@@ -45,7 +45,7 @@ struct buffer_bits {
 
 // para bloques de 256
 int _hamming_codificar_bloque_256(struct buffer_bits *, struct buffer_bits *, int);
-
+int _hamming_codificar_archivo_256(char []);
 
 uint16_t _hamming_codificar_bloque_8(uint8_t );
 
