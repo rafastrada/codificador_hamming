@@ -288,9 +288,6 @@ int _hamming_decodificar_archivo_4096bits(char nombre_fuente[]) {
 	bits_info_ultimo_bloque = cabecera_fuente[1];
 	}
 	
-	//DEBUG
-	printf("bits info ultimo bloque: %d\n",bits_info_ultimo_bloque);
-	
 	//recorrido del archivo fuente
 	while (!feof(fuente)) {
 		palabras_leidas = fread(bloque_fuente,SIZEOF_UINT32,TAM_ARREGLO_4096,fuente);
@@ -312,18 +309,15 @@ int _hamming_decodificar_archivo_4096bits(char nombre_fuente[]) {
 				fwrite(informacion_buffer,SIZEOF_UINT32,palabras_a_escribir,destino_corregido);
 			}
 			else {
+				double bits_ultimo_bloque = bits_info_ultimo_bloque,
+					   bits_acarreados = 32 - bits_restantes;
 				palabras_a_escribir = 
-					(int) ceil((double) bits_info_ultimo_bloque / 8);
-				if (bits_restantes) palabras_a_escribir += 4;
+					(int) ceil((double) (bits_ultimo_bloque + bits_acarreados) / 8);
 									
 				fwrite(informacion_buffer,SIZEOF_UINT8,palabras_a_escribir,destino_error);
 				fwrite(informacion_buffer,SIZEOF_UINT8,palabras_a_escribir,destino_corregido);
 			}
 			
-			//DEBUG
-			printf("\ncantidad bloques: %d\n",cantidad_bloques);
-			printf("bits_restantes %d\n",bits_restantes);
-			printf("palabras a escribir: %d\n",palabras_a_escribir);
 			
 			// se mueve la palabra incompleta al inicio del arreglo
 			informacion_incompleto = informacion_buffer + palabras_a_escribir;
@@ -331,7 +325,7 @@ int _hamming_decodificar_archivo_4096bits(char nombre_fuente[]) {
 			
 			/* Determinar los bits faltantes para llegar a los 4096 de informacion
 			 * en proxima iteracion*/
-			auxiliar = 32 - ((auxiliar + NUM_BITS_INFO_4096) % 32);
+			auxiliar = 32 - ((NUM_BITS_INFO_4096 - auxiliar) % 32);
 			bits_restantes = auxiliar;	//operacion redundante sobre auxiliar por las dudas
 			
 			--cantidad_bloques;
@@ -679,7 +673,12 @@ int _hamming_codificar_archivo_4096bits(char nombre_fuente[]) {
 	FILE *fuente, *destino;
 	uint32_t bloque_leido[TAM_ARREGLO_4096 + 1], bloque_codificado[TAM_ARREGLO_4096];	// buffers
 	uint32_t bytes_leidos, bits_a_codificar = 0, bits_a_codificar_backup = 0, bytes_a_leer;
+	/* bits de informacion no utilizados por la ultima palabra usada para crear el bloque*/
 	uint8_t bits_sobrantes = 0;
+	/* cantidad de bits sobrantes necesarios para leer menos de 4096 bits de info y compensar el desborde*/
+	const int bits_necesarios_reduccion = NUM_BITS_INFO_4096 - ((TAM_ARREGLO_4096-1) * 32);
+	/* puntero para indicar palabra incompleta y que debe ser trasladada al inicio*/
+	uint32_t *palabra_incompleta;
 	uint32_t cabecera_destino[2] = {0,0};	/* Inicio de archivo destino.
 											* El primer numero indica la cantidad de bloques,
 											* el segundo la cantidad de bits de informacion
@@ -711,8 +710,14 @@ int _hamming_codificar_archivo_4096bits(char nombre_fuente[]) {
 		 * acumulando, cuando sobra una palabra entera sin usarse, se lee una palabra menos
 		 * para compensar estas sobras
 		 */
-		if (bits_sobrantes == 32) bytes_a_leer = (TAM_ARREGLO_4096 - 1) << 2;	/*multiplicar por 4 */
-		else bytes_a_leer = TAM_ARREGLO_4096 << 2; /*multiplicar por 4 */
+		if (bits_sobrantes >= bits_necesarios_reduccion) {
+			bytes_a_leer = (TAM_ARREGLO_4096 - 1) << 2;	/*multiplicar por 4 */
+			palabra_incompleta = bloque_leido + (TAM_ARREGLO_4096-1);
+		}
+		else {
+			bytes_a_leer = TAM_ARREGLO_4096 << 2; /*multiplicar por 4 */
+			palabra_incompleta = bloque_leido + (TAM_ARREGLO_4096);
+		};
 
 
 		/*Se lee de a unidades de byte aunque sea un entero de 32 bits (4 bytes)
@@ -725,7 +730,6 @@ int _hamming_codificar_archivo_4096bits(char nombre_fuente[]) {
 				fuente);
 
 		bits_a_codificar = (bytes_leidos << 3) + bits_sobrantes; 	/*multiplicar por 8 */
-
 		if (bits_a_codificar > NUM_BITS_INFO_4096) bits_a_codificar = NUM_BITS_INFO_4096;
 		
 		bits_sobrantes = _hamming_codificar_bloque_4096(bloque_leido,
@@ -740,7 +744,7 @@ int _hamming_codificar_archivo_4096bits(char nombre_fuente[]) {
 		}
 
 		/*se mueve la ultima palabra al inicio para usar los bits que quedaron sin leer */
-		bloque_leido[0] = bloque_leido[TAM_ARREGLO_4096];
+		bloque_leido[0] = *palabra_incompleta;
 			
 	}
 	
