@@ -84,6 +84,20 @@ int main(int argc, char *argv[])
 						bloques_escritos
 					  );
 			}
+			// bloques de 256bits
+			else if (strcmp(argv[2],"256") == 0) {
+				bloques_escritos =
+					_hamming_codificar_archivo_256(nombre_archivo_entrada);
+
+
+				printf(
+						"\nSe codifico el archivo '%s' con bloques de 256 bits.\n"
+						"Se creo un archivo de formato HA2 con el mismo nombre.\n"
+						"Cantidad de bloques en el archivo de salida: %d\n",
+						nombre_archivo_entrada,
+						bloques_escritos
+					  );
+			}
 			// bloques de 4096bits
 			else if (strcmp(argv[2],"4096") == 0) {
 				// codificacion del archivo de entrada

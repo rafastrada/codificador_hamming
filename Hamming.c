@@ -259,8 +259,8 @@ int _hamming_codificar_bloque_256(
 
 		// se completa el resto del bloque codificado con ceros
 		// caso: el puntero no llega al final del buffer
-		if (ptr_buffer_codificado - bloque_codificado->palabras
-				< (bloque_codificado->tam_palabras)) {
+		if (ptr_buffer_codificado - bloque_codificado->arreglo
+				< (bloque_codificado->tam_arreglo)) {
 			*ptr_buffer_codificado = 0x0;
 			++ptr_buffer_codificado;
 			indice -= 8;
@@ -281,15 +281,15 @@ int _hamming_codificar_bloque_256(
 		if (bits_control & mascara_bit_control) {
 			// indice arreglo: en que palabra del buffer va el bit
 			int indice_arreglo = (mascara_bit_control-1) / 8;
-			indice_arreglo = (bloque_codificado->tam_palabras - 1) - indice_arreglo;	// se invierte
+			indice_arreglo = (bloque_codificado->tam_arreglo - 1) - indice_arreglo;	// se invierte
 
 			// posicion palabra: la posicion del bit en la palabra
 			int posicion_palabra = (mascara_bit_control-1) % 8;
 			uint8_t bit_control = 0x1 << posicion_palabra;
 
 			// se agrega el bit en el bloque codificado
-			ptr_buffer_codificado = bloque_codificado->palabras + indice_arreglo;
-			*ptr_buffer_codificado = *ptr_buffer_codificado | bits_control;
+			ptr_buffer_codificado = bloque_codificado->arreglo + indice_arreglo;
+			*ptr_buffer_codificado = *ptr_buffer_codificado | bit_control;
 			
 			// se actualiza el bit de paridad total
 			paridad_total = paridad_total ^ 0x80;
@@ -301,7 +301,7 @@ int _hamming_codificar_bloque_256(
 
 	// por ultimo, se introdude el bit de paridad total,
 	// el cual va al inicio
-	ptr_buffer_codificado = bloque_codificado->palabras;	// indice 0
+	ptr_buffer_codificado = bloque_codificado->arreglo;	// indice 0
 	*ptr_buffer_codificado = *ptr_buffer_codificado | paridad_total;
 
 	// retorna 0 si la operacion se realizo correctamente
@@ -309,19 +309,19 @@ int _hamming_codificar_bloque_256(
 }
 
 void buffer_bits_init(struct buffer_bits *buffer) {
-	buffer->palabras =
+	buffer->arreglo =
 		(uint8_t *) malloc(sizeof(uint8_t) *
-				buffer->tam_palabras);
+				buffer->tam_arreglo);
 
-	buffer->palabra_inicio = buffer->palabras;
+	buffer->palabra_inicio = buffer->arreglo;
 	buffer->palabra_inicio_bits = 0;
 
-	buffer->palabra_ultima = buffer->palabras + (buffer->tam_palabras - 1);
+	buffer->palabra_ultima = buffer->arreglo + (buffer->tam_arreglo - 1);
 	buffer->palabra_ultima_bits = 0;
 }
 
 void buffer_bits_free(struct buffer_bits *buffer) {
-	free((void *) buffer->palabras);
+	free((void *) buffer->arreglo);
 
 	buffer->palabra_ultima = NULL;
 	buffer->palabra_inicio = NULL;
@@ -345,18 +345,19 @@ int _hamming_codificar_archivo_256(char nombre_fuente[]) {
 
 	// iniciacion de buffers
 	struct buffer_bits informacion_fuente = {
-		.tam_palabras = TAM_ARREGLO_256 * 2
+		.tam_arreglo = TAM_ARREGLO_256 + 2
 	}, codificacion_destino = {
-		.tam_palabras = TAM_ARREGLO_256
+		.tam_arreglo = TAM_ARREGLO_256
 	};
 	buffer_bits_init(&informacion_fuente);
 	buffer_bits_init(&codificacion_destino);
-	informacion_fuente.palabra_inicio = informacion_fuente.palabras + 8;
-	uint8_t *ptr_informacion_fuente = informacion_fuente.palabra_inicio;
+	informacion_fuente.palabra_inicio = informacion_fuente.arreglo;
+	uint8_t *ptr_informacion_fuente = informacion_fuente.palabra_inicio + 1;
 
 
 	// cabecera del archivo
-	uint32_t cabecera[2] = {0,0};
+	uint32_t cabecera[2] = {0,0};	// [0] contador de bloques escritos
+									// [1] cantidad de bits de info en ultimo bloque
 	{	// control de escritura correcta
 		int cabecera_escrita = 
 			fwrite(&cabecera, SIZEOF_UINT32, 2, destino);
@@ -364,25 +365,55 @@ int _hamming_codificar_archivo_256(char nombre_fuente[]) {
 	}
 
 	// recorrido del archivo a codificar
-	int bytes_leidos = 0, bits_a_codificar;
+	int bytes_leidos = 0, bytes_a_leer, bits_a_codificar;
 	while (!feof(fuente)) {
 		// si sobraron bits del bloque codificado anteriormente
-		//if ();
-		//
+		if (informacion_fuente.palabra_ultima_bits) {
+			informacion_fuente.palabra_inicio_bits =
+				informacion_fuente.palabra_ultima_bits;
+			*(informacion_fuente.palabra_inicio) = *(informacion_fuente.palabra_ultima);
+		} else {
+			informacion_fuente.palabra_inicio_bits = 0;
+		}
+
+		// calculo de bytes a leer segun bits sobrantes
+		{
+			double bytes_necesarios =
+				(NUM_BITS_INFO_256 - informacion_fuente.palabra_inicio_bits) / 8;
+			bytes_a_leer = (int) ceil(bytes_necesarios);
+		}
+		
 		//TERMINAR
 		// lectura del archivo
-		bytes_leidos = fread(ptr_informacion_fuente, 1, TAM_ARREGLO_256, fuente);
+		bytes_leidos = fread(ptr_informacion_fuente, 1, bytes_a_leer, fuente);
 
-		bits_a_codificar = 0;
+		// se determinan la cantidad de bits de info que contendra el bloque
+		bits_a_codificar = (bytes_leidos * 8) + informacion_fuente.palabra_inicio_bits;
+		if (bits_a_codificar > NUM_BITS_INFO_256) bits_a_codificar = NUM_BITS_INFO_256;
+
+		// caso: hay bits para codificar
+		if (bits_a_codificar) {
+			_hamming_codificar_bloque_256(&informacion_fuente, &codificacion_destino, bits_a_codificar);
+
+			// se escribe en el archivo
+			fwrite(codificacion_destino.palabra_inicio, 1, codificacion_destino.tam_arreglo, destino);
+			// se actualiza la cabecera del archivo destino
+			++(cabecera[0]);	// cantidad de bloques codificados
+			cabecera[1] = bits_a_codificar;
+		}
 	}
 
-	fclose(destino);
 	fclose(fuente);
+
+	rewind(destino);
+	fwrite(&cabecera, SIZEOF_UINT32, 2, destino);
+	
+	fclose(destino);
 
 	buffer_bits_free(&informacion_fuente);
 	buffer_bits_free(&codificacion_destino);
 
-	return 0;
+	return cabecera[0];
 }
 
 
