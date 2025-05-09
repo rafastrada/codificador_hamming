@@ -133,6 +133,10 @@ int main(int argc, char *argv[])
 					_hamming_error_en_archivo_8bits(
 							nombre_archivo_entrada, probabilidad);
 					break;
+				case HA2:
+					_hamming_error_en_archivo_256(
+							nombre_archivo_entrada, probabilidad);
+					break;
 				default:
 					// cuando el archivo no es de formato HA_
 					// termina el programa
@@ -158,6 +162,10 @@ int main(int argc, char *argv[])
 				case HE1:
 					// decodificacion de bloques de 8 bits
 					_hamming_decodificar_archivo_8bits(nombre_archivo_entrada);
+					break;
+				case HA2:
+				case HE2:
+					_hamming_decodificar_archivo_256(nombre_archivo_entrada);
 					break;
 				case HA3:
 				case HE3:

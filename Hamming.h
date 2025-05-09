@@ -35,6 +35,11 @@ struct palabra_buffer {
 	short int bits_restantes;
 };
 
+struct sindrome {
+	uint16_t bits_control;
+	uint8_t paridad_total;
+};
+
 struct buffer_intervalo {
 	uint8_t *inicio, *fin;
 	short int inicio_bits_disponibles;
@@ -53,6 +58,10 @@ void buffer_bits_free(struct buffer_bits *buffer);
 // para bloques de 256
 int _hamming_codificar_bloque_256(struct buffer_bits *, struct buffer_bits *, int);
 int _hamming_codificar_archivo_256(char []);
+struct sindrome _hamming_decodificar_bloque_256(struct buffer_bits *, struct buffer_bits *);
+int _hamming_decodificar_archivo_256(char []);
+int _hamming_error_en_bloque_256(struct buffer_bits *, float);
+int _hamming_error_en_archivo_256(char [], float);
 
 uint16_t _hamming_codificar_bloque_8(uint8_t );
 
