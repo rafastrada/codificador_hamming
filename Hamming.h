@@ -40,11 +40,6 @@ struct sindrome {
 	uint8_t paridad_total;
 };
 
-struct buffer_intervalo {
-	uint8_t *inicio, *fin;
-	short int inicio_bits_disponibles;
-};
-
 struct buffer_bits {
 	uint8_t *arreglo;		// puntero a base de arreglo de palabras
 	const unsigned int tam_arreglo;	// tamanio de arreglo de palabras
