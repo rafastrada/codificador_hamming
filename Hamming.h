@@ -62,6 +62,7 @@ struct sindrome _hamming_decodificar_bloque_256(struct buffer_bits *, struct buf
 int _hamming_decodificar_archivo_256(char []);
 int _hamming_error_en_bloque_256(struct buffer_bits *, float);
 int _hamming_error_en_archivo_256(char [], float);
+void _hamming_corregir_info_256(struct buffer_bits *, struct sindrome );
 
 uint16_t _hamming_codificar_bloque_8(uint8_t );
 
@@ -87,5 +88,6 @@ void _hamming_corregir_bloque_8(uint16_t *, uint16_t , int []);
 
 // funciones adicionales
 void nombre_archivo_quitar_extension(char [], char []);
+uint16_t indice_restar_bits_control(uint16_t );
 
 #endif  

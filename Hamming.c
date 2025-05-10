@@ -241,12 +241,14 @@ int _hamming_codificar_bloque_256(
 	}
 
 	// se actualiza en el buffer la ultima palabra utilizada
+	*ptr_buffer_informacion = p_informacion.p;
 	informacion->palabra_ultima = ptr_buffer_informacion;
 	informacion->palabra_ultima_bits = p_informacion.bits_restantes;
 
 
 	// si los bits de info se acabaron, se completa el resto con ceros
-	while (indice) {
+	while (indice > 0 && ptr_buffer_codificado - bloque_codificado->arreglo
+				< (bloque_codificado->tam_arreglo)) {
 		// si quedaban bits disponibles en la palabra codificada
 		if (p_codificada.bits_restantes) {
 			p_codificada.p = p_codificada.p << p_codificada.bits_restantes;
@@ -255,13 +257,9 @@ int _hamming_codificar_bloque_256(
 
 			*ptr_buffer_codificado = p_codificada.p;
 			++ptr_buffer_codificado;
-			indice -= 8;
-		}
-
-		// se completa el resto del bloque codificado con ceros
-		// caso: el puntero no llega al final del buffer
-		if (ptr_buffer_codificado - bloque_codificado->arreglo
-				< (bloque_codificado->tam_arreglo)) {
+		} else {
+			// se completa el resto del bloque codificado con ceros
+			// caso: el puntero no llega al final del buffer
 			*ptr_buffer_codificado = 0x0;
 			++ptr_buffer_codificado;
 			indice -= 8;
@@ -382,7 +380,7 @@ int _hamming_codificar_archivo_256(char nombre_fuente[]) {
 		// calculo de bytes a leer segun bits sobrantes
 		{
 			double bytes_necesarios =
-				(NUM_BITS_INFO_256 - informacion_fuente.palabra_ultima_bits) / 8;
+				(double)(NUM_BITS_INFO_256 - informacion_fuente.palabra_ultima_bits) / 8;
 			bytes_a_leer = (int) ceil(bytes_necesarios);
 		}
 		
@@ -555,13 +553,18 @@ int _hamming_decodificar_archivo_256(char nombre_fuente[]) {
 			if (cantidad_bloques != 1) {
 				fin = informacion.palabra_ultima_bits == 0 ?
 					informacion.palabra_ultima : informacion.palabra_ultima - 1;
-				bytes_a_escribir = fin - inicio;
+				bytes_a_escribir = fin - inicio + 1;
 
 			} else {
 				bytes_a_escribir =
 					(int) ceil(((double) bits_info_ultimo_bloque) / 8);
 			};
+			// escritura de informacion SIN corregir
 			fwrite(inicio, 1, bytes_a_escribir, destino_error);
+
+			// correccion de informacion
+			_hamming_corregir_info_256(&informacion, sindrome);
+			// escritura de informacion CORREGIDA
 			fwrite(inicio, 1, bytes_a_escribir, destino_corregido);
 
 			if (informacion.palabra_ultima_bits) {
@@ -586,6 +589,32 @@ int _hamming_decodificar_archivo_256(char nombre_fuente[]) {
 	fclose(destino_corregido);
 
 	return 0;
+}
+
+void _hamming_corregir_info_256(
+		struct buffer_bits *informacion,
+		struct sindrome sindrome) {
+	// se corrige solamente si el sindrome NO es una potencia de 2,
+	// ya que el error corresponderia a un bit de control
+	if ((sindrome.bits_control - 1) & sindrome.bits_control) {
+
+		// se obtiene el indice del error pero en relacion a los bits de info
+		uint16_t bit_error_indice =
+			indice_restar_bits_control(sindrome.bits_control);
+
+		// se desplaza para acomodar la posicion con el buffer
+		bit_error_indice += informacion->palabra_ultima_bits;
+
+		const uint8_t mascara_bit = 
+			0x1 << ((bit_error_indice - 1) % 8);
+
+		const int indice_arreglo = (bit_error_indice - 1) / 8;
+
+		// correccion
+		uint8_t *ptr_informacion = informacion->palabra_ultima;
+		ptr_informacion -= indice_arreglo;
+		*ptr_informacion = *ptr_informacion ^ mascara_bit;
+	}
 }
 
 int _hamming_error_en_bloque_256(struct buffer_bits *bloque, float probabilidad) {
@@ -1334,4 +1363,33 @@ void nombre_archivo_quitar_extension(char destino[], char fuente[]) {
 	// copia el nombre sin la extension
 	strncpy(destino, fuente, caracteres_solo_nombre);
 	destino[caracteres_solo_nombre] = '\0';
+}
+
+int tipo_error(struct sindrome sindrome) {
+	// caso: no hay error
+	if (!sindrome.bits_control && !sindrome.paridad_total) {
+		return EST_SINERROR;
+	} else {
+		// caso: un error
+		if (sindrome.bits_control && sindrome.paridad_total) {
+			return EST_UN_ERROR;
+		} else {
+			// caso: dos errores
+			return EST_DOS_ERRORES;
+		}
+	}
+}
+
+uint16_t indice_restar_bits_control(uint16_t bits_control_sindrome) {
+	uint16_t mascara = 0x8000;
+
+	// caso: mientras la mascara no sea cero
+	while (mascara) {
+		// si el indice (el sindrome) incluye la posicion de un bit de control
+		if (bits_control_sindrome >= mascara) --bits_control_sindrome;
+
+		mascara = mascara >> 1;
+	}
+
+	return bits_control_sindrome;
 }
