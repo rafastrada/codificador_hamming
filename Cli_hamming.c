@@ -74,7 +74,7 @@ int main(int argc, char *argv[])
 			if (strcmp(argv[2], "8") == 0) {
 														//
 				//codificacion del archivo de entrada
-				bloques_escritos = _hamming_codificar_archivo_8bits(nombre_archivo_entrada);
+				bloques_escritos = _hamming_codificar_archivo_8(nombre_archivo_entrada);
 				
 				printf(
 						"\nSe codifico el archivo '%s' con bloques de 8 bits.\n"
@@ -87,7 +87,7 @@ int main(int argc, char *argv[])
 			// bloques de 256bits
 			else if (strcmp(argv[2],"256") == 0) {
 				bloques_escritos =
-					_hamming_codificar_archivo_256(nombre_archivo_entrada);
+					_hamming_codificar_archivo(HAM256, nombre_archivo_entrada);
 
 
 				printf(
@@ -102,7 +102,7 @@ int main(int argc, char *argv[])
 			else if (strcmp(argv[2],"4096") == 0) {
 				// codificacion del archivo de entrada
 				bloques_escritos =
-					_hamming_codificar_archivo_4096bits(nombre_archivo_entrada);
+					_hamming_codificar_archivo(HAM4096, nombre_archivo_entrada);
 				
 				printf(
 						"\nSe codifico el archivo '%s' con bloques de 4096 bits.\n"
@@ -130,12 +130,16 @@ int main(int argc, char *argv[])
 			 * introduccion de error correspondiente*/
 			switch (ext_archivo_entrada) {
 				case HA1:
-					_hamming_error_en_archivo_8bits(
+					_hamming_error_en_archivo_8(
 							nombre_archivo_entrada, probabilidad);
 					break;
 				case HA2:
-					_hamming_error_en_archivo_256(
-							nombre_archivo_entrada, probabilidad);
+					_hamming_error_en_archivo(
+							HAM256, nombre_archivo_entrada, probabilidad);
+					break;
+				case HA3:
+					_hamming_error_en_archivo(
+							HAM4096, nombre_archivo_entrada, probabilidad);
 					break;
 				default:
 					// cuando el archivo no es de formato HA_
@@ -161,16 +165,16 @@ int main(int argc, char *argv[])
 				case HA1:
 				case HE1:
 					// decodificacion de bloques de 8 bits
-					_hamming_decodificar_archivo_8bits(nombre_archivo_entrada);
+					_hamming_decodificar_archivo_8(nombre_archivo_entrada);
 					break;
 				case HA2:
 				case HE2:
-					_hamming_decodificar_archivo_256(nombre_archivo_entrada);
+					_hamming_decodificar_archivo(HAM256, nombre_archivo_entrada);
 					break;
 				case HA3:
 				case HE3:
 					// decodificacion de bloques de 4096
-					_hamming_decodificar_archivo_4096bits(nombre_archivo_entrada);
+					_hamming_decodificar_archivo(HAM4096, nombre_archivo_entrada);
 					break;
 				
 				/*si el archivo no tiene una extension valida*/
