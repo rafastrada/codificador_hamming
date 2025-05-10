@@ -30,6 +30,8 @@
 enum hamming_tam_bloque{ HAM8, HAM256, HAM4096 };
 
 enum hamming_estados_bloque{ EST_SINERROR, EST_UN_ERROR, EST_DOS_ERRORES };
+// constantes para facilitar la deteccion automatica de tipo de codificacion
+enum extension { NONE = -1, TXT, HA1, HA2, HA3, HE1, HE2, HE3, DE1, DE2, DE3, DC1, DC2, DC3 };
 
 // buffer bits
 struct palabra_buffer {
@@ -80,5 +82,6 @@ void _hamming_corregir_bloque_8(uint16_t *, uint16_t , int []);
 // funciones adicionales
 void nombre_archivo_quitar_extension(char [], char []);
 uint16_t indice_restar_bits_control(uint16_t );
+int tipo_ext_nombre_archivo(char []);
 
 #endif  

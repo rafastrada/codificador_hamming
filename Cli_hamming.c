@@ -4,16 +4,6 @@
 #include <stdlib.h>
 #include <string.h>
 
-// constantes para facilitar la deteccion automatica de tipo de codificacion
-enum extension { NAN = -1, TXT, HA1, HA2, HA3, HE1, HE2, HE3 };
-const char* ext_strings[] = {
-	".txt", ".ha1",".ha2",".ha3",".he1",".he2",".he3"
-};
-
-// prototipos de funciones
-int tipo_ext_nombre_archivo(char []);
-
-
 /*
  * El programa recibe por parametro que funcion va a realizar:
  * codificar o decodificar un archivo.
@@ -188,18 +178,3 @@ int main(int argc, char *argv[])
 	return EXIT_SUCCESS;
 }
 
-/** Devuelve el tipo de extension que contiene el nombre de archivo indicado.
- *
- * @param nombre_archivo Nombre de archivo (solo ha1,ha2,ha3,he1,he2,he3).
- * @return Enumerado de tipo 'extension'. NAN si no es una extension admitida.
- */
-int tipo_ext_nombre_archivo(char nombre_archivo[]) {
-	char *ext_char = strrchr(nombre_archivo, '.');	// puntero a solamente la extension
-
-	for (int i = 0; i<=HE3; i++) {
-		if (strcmp(ext_char, ext_strings[i]) == 0)
-			return i;
-	}
-
-	return NAN;
-}

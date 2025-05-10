@@ -12,6 +12,7 @@
 
 #include "Hamming.h"
 
+// constantes de cada tipo de codificacion
 const int NUM_BITS_TOTAL[] = {
 	NUM_BITS_TOTAL_8,
 	NUM_BITS_TOTAL_256,
@@ -30,6 +31,16 @@ const int NUM_BITS_TOTAL[] = {
 	NUM_BITS_CONTROL_4096
 };
 
+// extensiones de cada tipo de formato
+const char * ext_strings[] = {
+	".txt", ".ha1",".ha2",".ha3",".he1",".he2",".he3",
+	".de1", ".de2", ".de3", ".dc1", ".dc2", ".dc3"
+};
+
+
+// ------------------------------------------------------------------
+// FUNCIONES PARA TAMAÑOS DE BLOQUE GENERAL
+//
 
 int _hamming_codificar_bloque(
 		const int ham_tipo,
@@ -168,34 +179,25 @@ int _hamming_codificar_bloque(
 	return 0;
 }
 
-void buffer_bits_init(struct buffer_bits *buffer) {
-	buffer->arreglo =
-		(uint8_t *) malloc(sizeof(uint8_t) *
-				buffer->tam_arreglo);
-
-	buffer->palabra_inicio = buffer->arreglo;
-	buffer->palabra_inicio_bits = 0;
-
-	buffer->palabra_ultima = buffer->arreglo + (buffer->tam_arreglo - 1);
-	buffer->palabra_ultima_bits = 0;
-}
-
-void buffer_bits_free(struct buffer_bits *buffer) {
-	free((void *) buffer->arreglo);
-
-	buffer->palabra_ultima = NULL;
-	buffer->palabra_inicio = NULL;
-	buffer->palabra_ultima_bits = 0;
-	buffer->palabra_inicio_bits = 0;
-}
-
+/** 
+ * @param ham_tipo Tamaño de bloque a utilizar en la codificación.
+ * @param nombre_fuente Nombre de archivo TXT a codificar. (Incluir extensión).
+ *
+ * @return Cantidad de bloques resultantes.
+ */
 int _hamming_codificar_archivo(const int ham_tipo, char nombre_fuente[]) {
 	char nombre_destino[TAM_CADENAS_NOMBRE];
 	FILE *fuente, *destino;
 
+	// se determina el tipo de extension.
+	// como solo hay dos tipos de extension se usa un 'if',
+	// si huviese mas habria que usar un 'switch'.
+	const char *ext_destino = ham_tipo == HAM256 ?
+		ext_strings[HA2] : ext_strings[HA3];
+
 	// definicion nombre de archivo destino
 	nombre_archivo_quitar_extension(nombre_destino, nombre_fuente);
-	strcat(nombre_destino, ".ha2");
+	strcat(nombre_destino, ext_destino);
 
 	// apertura de archivos
 	fuente = fopen(nombre_fuente, "rb");
@@ -368,11 +370,15 @@ int _hamming_decodificar_archivo(const int ham_tipo, char nombre_fuente[]) {
 	char nombre_destino_error[TAM_CADENAS_NOMBRE],
 		nombre_destino_corregido[TAM_CADENAS_NOMBRE];
 	FILE *fuente, *destino_error, *destino_corregido;
+	const char *ext_error = ham_tipo == HAM256 ?
+							ext_strings[DE2] : ext_strings[DE3],
+		*ext_corregido = ham_tipo == HAM256 ?
+							ext_strings[DC2] : ext_strings[DC3];
 
 	nombre_archivo_quitar_extension(nombre_destino_error, nombre_fuente);
 	nombre_archivo_quitar_extension(nombre_destino_corregido, nombre_fuente);
-	strcat(nombre_destino_error, ".de2");
-	strcat(nombre_destino_corregido, ".dc2");
+	strcat(nombre_destino_error, ext_error);
+	strcat(nombre_destino_corregido, ext_corregido);
 
 
 	struct buffer_bits bloque_codificado = {
@@ -511,8 +517,12 @@ int _hamming_error_en_archivo(
 		char nombre_fuente[],
 		float probabilidad) {
 	char nombre_destino[TAM_CADENAS_NOMBRE];
+	// se determina la extension segun el tipo de codificacion
+	const char *ext_destino = ham_tipo == HAM256 ?
+							ext_strings[HE2] : ext_strings[HE3];
+
 	nombre_archivo_quitar_extension(nombre_destino, nombre_fuente);
-	strcat(nombre_destino, ".he2");
+	strcat(nombre_destino, ext_destino);
 
 	FILE *fuente, *destino;
 	int contador_errores = 0;
@@ -552,6 +562,11 @@ int _hamming_error_en_archivo(
 
 	return contador_errores;
 }
+
+
+// ------------------------------------------------------------------
+// FUNCIONES ESPECIFICAS PARA BLOQUES DE 8 BITS
+//
 
 
 /* Funcion privada para codificar unicamente bloques de 8 bits.
@@ -948,6 +963,10 @@ int _hamming_error_en_archivo_8(char nombre_fuente[], float probabilidad) {
 	return cantidad_errores;
 }
 
+// ------------------------------------------------------------------
+// FUNCIONES ADICIONALES
+//
+
 /** Remueve la extension del nombre completo de un archivo.
  * El resultado es copiado en otra cadena.
  *
@@ -991,3 +1010,42 @@ uint16_t indice_restar_bits_control(uint16_t bits_control_sindrome) {
 
 	return bits_control_sindrome;
 }
+
+/** Devuelve el tipo de extension que contiene el nombre de archivo indicado.
+ *
+ * @param nombre_archivo Nombre de archivo (solo ha1,ha2,ha3,he1,he2,he3).
+ * @return Enumerado de tipo 'extension'. NONE si no es una extension admitida.
+ */
+int tipo_ext_nombre_archivo(char nombre_archivo[]) {
+	char *ext_char = strrchr(nombre_archivo, '.');	// puntero a solamente la extension
+
+	for (int i = 0; i<=DC3; i++) {
+		if (strcmp(ext_char, ext_strings[i]) == 0)
+			return i;
+	}
+
+	return NONE;
+}
+
+void buffer_bits_init(struct buffer_bits *buffer) {
+	buffer->arreglo =
+		(uint8_t *) malloc(sizeof(uint8_t) *
+				buffer->tam_arreglo);
+
+	buffer->palabra_inicio = buffer->arreglo;
+	buffer->palabra_inicio_bits = 0;
+
+	buffer->palabra_ultima = buffer->arreglo + (buffer->tam_arreglo - 1);
+	buffer->palabra_ultima_bits = 0;
+}
+
+void buffer_bits_free(struct buffer_bits *buffer) {
+	free((void *) buffer->arreglo);
+
+	buffer->palabra_ultima = NULL;
+	buffer->palabra_inicio = NULL;
+	buffer->palabra_ultima_bits = 0;
+	buffer->palabra_inicio_bits = 0;
+}
+
+
