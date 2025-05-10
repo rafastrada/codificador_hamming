@@ -23,7 +23,7 @@ El programa puede ejecutarse sin argumentos para obtener los comandos disponible
 
 ### Codificar
 	codificar (8|256|4096) (nombre_archivo)
-	"Codifica el archivo con codigos de Hamming en el tamanio de bloque indicado"
+	"Codifica el archivo con codigos de Hamming en el tamaño de bloque indicado"
 
 ### Alterar
 	alterar (nombre_archivo) (probabilidad)
@@ -33,3 +33,7 @@ El programa puede ejecutarse sin argumentos para obtener los comandos disponible
 	decodificar (nombre_archivo)
 	"Decodifica el archivo indicado y escribe la informacion en dos
 	nuevos archivos, uno sin corregir y el otro corregido"
+
+## Tests
+
+OBSOLETO. La carpeta `tests` contiene programas de prueba para inspeccionar el funcionamiento de la librería principal.
