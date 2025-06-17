@@ -478,10 +478,17 @@ void _hamming_corregir_info(
 		// se desplaza para acomodar la posicion con el buffer
 		bit_error_indice += informacion->palabra_ultima_bits;
 
+		const int indice_arreglo = (bit_error_indice - 1) / 8;
+
+		// los bytes se escriben de derecha a izquierda,
+		// cuando el error se encuentra en el ultimo byte en el arreglo,
+		// los bits desplazados se encuentran a la izquierda, entonces solo 
+		// en este caso no se suman los bits de dezplazamiento para la mascara
+		// (se vuelven a restar)
+		if (!indice_arreglo) bit_error_indice -= informacion->palabra_ultima_bits;
+
 		const uint8_t mascara_bit = 
 			0x1 << ((bit_error_indice - 1) % 8);
-
-		const int indice_arreglo = (bit_error_indice - 1) / 8;
 
 		// correccion
 		uint8_t *ptr_informacion = informacion->palabra_ultima;
