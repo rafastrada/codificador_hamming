@@ -217,14 +217,14 @@ int out_mensaje_decodificacion(int tipo_ham, char nombre_archivo[], int nivel_er
 			  );
 
 		switch (nivel_error) {
-			case 0:
+			case EST_SINERROR:
 				printf("El archivo no tenia errores.\n");
 				break;
-			case 1:
+			case EST_UN_ERROR:
 				printf("El archivo tenia bloques con un error."
 						" Se recupero la informacion original correctamente.\n");
 				break;
-			case 2:
+			case EST_DOS_ERRORES:
 				printf("El archivo tenia bloques con mas de un error."
 						"No es posible recuperar la informacion original.\n");
 				salida = 2;
