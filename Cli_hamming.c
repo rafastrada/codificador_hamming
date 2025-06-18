@@ -4,6 +4,10 @@
 #include <stdlib.h>
 #include <string.h>
 
+// prototipos
+int out_mensaje_codificacion(int tipo_ham, char nombre_archivo[], int bloques_escritos);
+int out_mensaje_decodificacion(int tipo_ham, char nombre_archivo[], int nivel_error);
+
 /*
  * El programa recibe por parametro que funcion va a realizar:
  * codificar o decodificar un archivo.
@@ -17,6 +21,7 @@ int main(int argc, char *argv[])
 	printf("Codificador de archivos TXT con Codigos de Hamming\n\n");
 
 	char nombre_archivo_entrada[TAM_CADENAS_NOMBRE];
+	int retorno_programa = EXIT_SUCCESS;
 
 	/* se analizan los parametros de entrada */
 	/* si no se incluyeron parametros (menos de 2) solo imprime
@@ -65,28 +70,19 @@ int main(int argc, char *argv[])
 														//
 				//codificacion del archivo de entrada
 				bloques_escritos = _hamming_codificar_archivo_8(nombre_archivo_entrada);
-				
-				printf(
-						"\nSe codifico el archivo '%s' con bloques de 8 bits.\n"
-						"Se creo un archivo de formato HA1 con el mismo nombre.\n"
-						"Cantidad de bloques en el archivo de salida: %d\n",
-						nombre_archivo_entrada,
-						bloques_escritos
-					  );
+
+				// imprime por pantalla el mensaje correspondiente
+				retorno_programa =
+					out_mensaje_codificacion(HAM8, nombre_archivo_entrada, bloques_escritos);
 			}
 			// bloques de 256bits
 			else if (strcmp(argv[2],"256") == 0) {
 				bloques_escritos =
 					_hamming_codificar_archivo(HAM256, nombre_archivo_entrada);
 
-
-				printf(
-						"\nSe codifico el archivo '%s' con bloques de 256 bits.\n"
-						"Se creo un archivo de formato HA2 con el mismo nombre.\n"
-						"Cantidad de bloques en el archivo de salida: %d\n",
-						nombre_archivo_entrada,
-						bloques_escritos
-					  );
+				// imprime por pantalla el mensaje correspondiente
+				retorno_programa =
+					out_mensaje_codificacion(HAM256, nombre_archivo_entrada, bloques_escritos);
 			}
 			// bloques de 4096bits
 			else if (strcmp(argv[2],"4096") == 0) {
@@ -94,13 +90,9 @@ int main(int argc, char *argv[])
 				bloques_escritos =
 					_hamming_codificar_archivo(HAM4096, nombre_archivo_entrada);
 				
-				printf(
-						"\nSe codifico el archivo '%s' con bloques de 4096 bits.\n"
-						"Se creo un archivo de formato HA3 con el mismo nombre.\n"
-						"Cantidad de bloques en el archivo de salida: %d\n",
-						nombre_archivo_entrada,
-						bloques_escritos
-					  );
+				// imprime por pantalla el mensaje correspondiente
+				retorno_programa =
+					out_mensaje_codificacion(HAM4096, nombre_archivo_entrada, bloques_escritos);
 			}
 		}
 		// -------------------------------------------------------
@@ -150,31 +142,95 @@ int main(int argc, char *argv[])
 			// y utilizar el metodo de decodificacion correspondiente
 			int extension_nombre_archivo =
 				tipo_ext_nombre_archivo(nombre_archivo_entrada);
+			int tipo_ham;
+			// captura el maximo nivel de error en el archivo a decodificar
+			int nivel_error;
 			
 			switch (extension_nombre_archivo) {
 				case HA1:
 				case HE1:
 					// decodificacion de bloques de 8 bits
-					_hamming_decodificar_archivo_8(nombre_archivo_entrada);
+					tipo_ham = HAM8;
+					nivel_error =
+						_hamming_decodificar_archivo_8(nombre_archivo_entrada);
 					break;
 				case HA2:
 				case HE2:
-					_hamming_decodificar_archivo(HAM256, nombre_archivo_entrada);
+					// decodificacion de bloques de 256
+					tipo_ham = HAM256;
+					nivel_error =
+						_hamming_decodificar_archivo(HAM256,nombre_archivo_entrada);
 					break;
 				case HA3:
 				case HE3:
 					// decodificacion de bloques de 4096
-					_hamming_decodificar_archivo(HAM4096, nombre_archivo_entrada);
+					tipo_ham = HAM4096;
+					nivel_error =
+						_hamming_decodificar_archivo(HAM4096,nombre_archivo_entrada);
 					break;
-				
 				/*si el archivo no tiene una extension valida*/
 				default:
 					printf("\nDebe ingresar un archivo de formato .ha_ o .he_ !\n");
 					return EXIT_FAILURE;
 			}
+
+			// imprime por pantalla
+			retorno_programa =
+				out_mensaje_decodificacion(tipo_ham, nombre_archivo_entrada, nivel_error);
 		}
 	}
 
+	return retorno_programa;
+}
+
+int out_mensaje_codificacion(int tipo_ham, char nombre_archivo[], int bloques_escritos){
+
+	// caso: error en el manejo de archivos
+	if (bloques_escritos == -1) {
+		printf("\nHubo un error al codificar el archivo. (existe?)\n");
+		return EXIT_FAILURE;
+	}
+	else printf(
+			"\nSe codifico el archivo '%s' con bloques de %d bits.\n"
+			"Se creo un archivo de formato HA%d con el mismo nombre.\n"
+			"Cantidad de bloques en el archivo de salida: %d\n",
+			nombre_archivo,
+			NUM_BITS_TOTAL[tipo_ham], tipo_ham+1,
+			bloques_escritos
+		  );
 	return EXIT_SUCCESS;
 }
 
+int out_mensaje_decodificacion(int tipo_ham, char nombre_archivo[], int nivel_error) {
+	int salida = 0;
+
+	if (nivel_error == -1) {
+		printf("\nHubo un error al codificar el archivo. (existe?)\n");
+		return EXIT_FAILURE;
+	}
+	else {
+		printf(
+				"\nSe decodifico el archivo '%s'.\n"
+				"Se crearon arhcivos de formato DE%d y DC%d con el mismo nombre.\n\n",
+				nombre_archivo,
+				tipo_ham+1,tipo_ham+1
+			  );
+
+		switch (nivel_error) {
+			case 0:
+				printf("El archivo no tenia errores.\n");
+				break;
+			case 1:
+				printf("El archivo tenia bloques con un error."
+						" Se recupero la informacion original correctamente.\n");
+				break;
+			case 2:
+				printf("El archivo tenia bloques con mas de un error."
+						"No es posible recuperar la informacion original.\n");
+				salida = 2;
+				break;
+		}
+	}
+
+	return salida;
+}

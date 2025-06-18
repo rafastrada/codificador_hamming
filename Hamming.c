@@ -12,24 +12,6 @@
 
 #include "Hamming.h"
 
-// constantes de cada tipo de codificacion
-const int NUM_BITS_TOTAL[] = {
-	NUM_BITS_TOTAL_8,
-	NUM_BITS_TOTAL_256,
-	NUM_BITS_TOTAL_4096
-}, TAM_ARREGLO[] = {
-	TAM_ARREGLO_8,
-	TAM_ARREGLO_256,
-	TAM_ARREGLO_4096
-}, NUM_BITS_INFO[] = {
-	NUM_BITS_INFO_8,
-	NUM_BITS_INFO_256,
-	NUM_BITS_INFO_4096
-}, NUM_BITS_CONTROL[] = {
-	NUM_BITS_CONTROL_8,
-	NUM_BITS_CONTROL_256,
-	NUM_BITS_CONTROL_4096
-};
 
 // extensiones de cada tipo de formato
 const char * ext_strings[] = {
@@ -42,6 +24,19 @@ const char * ext_strings[] = {
 // FUNCIONES PARA TAMAÑOS DE BLOQUE GENERAL
 //
 
+/** Codifica la cantidad de bits indicada del buffer 'informacion' cons
+ * Hamming en bloques del tipo pasado por parametro.
+ *
+ * El parametro 'bits_restantes_total' es la cantidad de bits de informacion
+ * a tomar del buffer de entrada, el nombre hace alucion a los bits "disponibles".
+ *
+ * @param ham_tipo Constante de tamaño de bloque de Hamming
+ * @param informacion Puntero a buffer con los bits de informacion
+ * @param bloque_codificado Puntero a buffer destino donde se ubicara el bloque codificado
+ * @param bits_restantes_total Cantidad de bits de informacion a codificar
+ *
+ * @return Cero si la operacion se realizo correctamente. 1 en caso de error.
+ */
 int _hamming_codificar_bloque(
 		const int ham_tipo,
 		struct buffer_bits *informacion,
@@ -63,8 +58,11 @@ int _hamming_codificar_bloque(
 	p_codificada.p = 0x0;
 	p_codificada.bits_restantes = 8;
 
+	// inicializa el indice en base al tamaño de bloque elegido
 	int indice = NUM_BITS_TOTAL[ham_tipo];
 
+	// caso: mientras existan bits de informacion, o
+	// el indice no sea cero
 	while (bits_restantes_total && indice) {
 
 		if (!p_informacion.bits_restantes) {
@@ -140,7 +138,7 @@ int _hamming_codificar_bloque(
 
 	// posible caso de error
 	// (si todo anda bien no deberia pasar, pero no esta de mas)
-	if (indice != 0) return -1;
+	if (indice != 0) return 1;
 
 
 	// proceso de incluir los bits de control al bloque.
@@ -183,7 +181,7 @@ int _hamming_codificar_bloque(
  * @param ham_tipo Tamaño de bloque a utilizar en la codificación.
  * @param nombre_fuente Nombre de archivo TXT a codificar. (Incluir extensión).
  *
- * @return Cantidad de bloques resultantes.
+ * @return Cantidad de bloques resultantes. -1 en caso de error.
  */
 int _hamming_codificar_archivo(const int ham_tipo, char nombre_fuente[]) {
 	char nombre_destino[TAM_CADENAS_NOMBRE];
@@ -366,7 +364,17 @@ struct sindrome _hamming_decodificar_bloque(
 }
 
 
+/** Crea nuevos archivos con la informacion decodificada por Hamming en el archivo
+ * fuente indicado.
+ *
+ * @param ham_tipo Tamaño de bloque de Hamming.
+ * @param nombre_fuente Nombre de archivo fuente a decodificar.
+ *
+ * @return 0 si se realizo la decodificacion correctamente. -1 si hubo algun error.
+ * 1 si algun bloque tenia un error. 2 si algun bloque tenia dos errores.
+ */
 int _hamming_decodificar_archivo(const int ham_tipo, char nombre_fuente[]) {
+	int retorno_nivel_error = EST_SINERROR;
 	char nombre_destino_error[TAM_CADENAS_NOMBRE],
 		nombre_destino_corregido[TAM_CADENAS_NOMBRE];
 	FILE *fuente, *destino_error, *destino_corregido;
@@ -435,7 +443,16 @@ int _hamming_decodificar_archivo(const int ham_tipo, char nombre_fuente[]) {
 			fwrite(inicio, 1, bytes_a_escribir, destino_error);
 
 			// correccion de informacion
-			_hamming_corregir_info(ham_tipo, &informacion, sindrome);
+			{
+				int tipo_error =
+					_hamming_corregir_info(ham_tipo, &informacion, sindrome);
+
+				//se actualiza el tipo de error mas alto
+				retorno_nivel_error = tipo_error > retorno_nivel_error ?
+					tipo_error : retorno_nivel_error;
+			}
+
+
 			// escritura de informacion CORREGIDA
 			fwrite(inicio, 1, bytes_a_escribir, destino_corregido);
 
@@ -460,41 +477,54 @@ int _hamming_decodificar_archivo(const int ham_tipo, char nombre_fuente[]) {
 	fclose(destino_error);
 	fclose(destino_corregido);
 
-	return 0;
+	return retorno_nivel_error;
 }
 
-void _hamming_corregir_info(
+int _hamming_corregir_info(
 		const int ham_tipo,
 		struct buffer_bits *informacion,
 		struct sindrome sindrome) {
-	// se corrige solamente si el sindrome NO es una potencia de 2,
-	// ya que el error corresponderia a un bit de control
-	if ((sindrome.bits_control - 1) & sindrome.bits_control) {
 
-		// se obtiene el indice del error pero en relacion a los bits de info
-		uint16_t bit_error_indice =
-			indice_restar_bits_control(sindrome.bits_control);
-
-		// se desplaza para acomodar la posicion con el buffer
-		bit_error_indice += informacion->palabra_ultima_bits;
-
-		const int indice_arreglo = (bit_error_indice - 1) / 8;
-
-		// los bytes se escriben de derecha a izquierda,
-		// cuando el error se encuentra en el ultimo byte en el arreglo,
-		// los bits desplazados se encuentran a la izquierda, entonces solo 
-		// en este caso no se suman los bits de dezplazamiento para la mascara
-		// (se vuelven a restar)
-		if (!indice_arreglo) bit_error_indice -= informacion->palabra_ultima_bits;
-
-		const uint8_t mascara_bit = 
-			0x1 << ((bit_error_indice - 1) % 8);
-
-		// correccion
-		uint8_t *ptr_informacion = informacion->palabra_ultima;
-		ptr_informacion -= indice_arreglo;
-		*ptr_informacion = *ptr_informacion ^ mascara_bit;
+	// caso: no hay error en el bloque
+	if (!sindrome.bits_control && !sindrome.paridad_total) {
+		return EST_SINERROR;
 	}
+	// caso: un solo error
+	else if (sindrome.bits_control && sindrome.paridad_total) {
+
+		// se corrige solamente si el sindrome NO es una potencia de 2,
+		// ya que el error corresponderia a un bit de control
+		if ((sindrome.bits_control - 1) & sindrome.bits_control) {
+
+			// se obtiene el indice del error pero en relacion a los bits de info
+			uint16_t bit_error_indice =
+				indice_restar_bits_control(sindrome.bits_control);
+
+			// se desplaza para acomodar la posicion con el buffer
+			bit_error_indice += informacion->palabra_ultima_bits;
+
+			const int indice_arreglo = (bit_error_indice - 1) / 8;
+
+			// los bytes se escriben de derecha a izquierda,
+			// cuando el error se encuentra en el ultimo byte en el arreglo,
+			// los bits desplazados se encuentran a la izquierda, entonces solo 
+			// en este caso no se suman los bits de dezplazamiento para la mascara
+			// (se vuelven a restar)
+			if (!indice_arreglo) bit_error_indice -= informacion->palabra_ultima_bits;
+
+			const uint8_t mascara_bit = 
+				0x1 << ((bit_error_indice - 1) % 8);
+
+			// correccion
+			uint8_t *ptr_informacion = informacion->palabra_ultima;
+			ptr_informacion -= indice_arreglo;
+			*ptr_informacion = *ptr_informacion ^ mascara_bit;
+		}
+
+		return EST_UN_ERROR;
+	}
+	// caso: dos errores en el bloque, no es posible corregir
+	else return EST_DOS_ERRORES;
 }
 
 int _hamming_error_en_bloque(

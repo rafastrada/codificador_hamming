@@ -3,35 +3,36 @@
 
 #include <stdint.h>
 
-#define TAM_CADENAS_NOMBRE 128
+#define TAM_CADENAS_NOMBRE 256
 #define SIZEOF_UINT32 4
 #define SIZEOF_UINT16 2
 #define SIZEOF_UINT8 1
-
-//bloques de 8
-#define NUM_BITS_TOTAL_8 8
-#define TAM_ARREGLO_8 1
-#define NUM_BITS_INFO_8 4
-#define NUM_BITS_CONTROL_8 3
-
-//bloques de 256
-#define NUM_BITS_TOTAL_256 256
-#define TAM_ARREGLO_256 32
-#define NUM_BITS_INFO_256 247
-#define NUM_BITS_CONTROL_256 8
-
-//bloques de 4096
-#define NUM_BITS_TOTAL_4096 4096
-#define TAM_ARREGLO_4096 512
-#define NUM_BITS_INFO_4096 4083
-#define NUM_BITS_CONTROL_4096 12
-
 
 enum hamming_tam_bloque{ HAM8, HAM256, HAM4096 };
 
 enum hamming_estados_bloque{ EST_SINERROR, EST_UN_ERROR, EST_DOS_ERRORES };
 // constantes para facilitar la deteccion automatica de tipo de codificacion
 enum extension { NONE = -1, TXT, HA1, HA2, HA3, HE1, HE2, HE3, DE1, DE2, DE3, DC1, DC2, DC3 };
+
+// constantes de cada tipo de codificacion
+static const int NUM_BITS_TOTAL[] = {
+	8,
+	256,
+	4096
+}, TAM_ARREGLO[] = {
+	1,
+	32,
+	512
+}, NUM_BITS_INFO[] = {
+	4,
+	247,
+	4083
+}, NUM_BITS_CONTROL[] = {
+	3,
+	8,
+	12
+};
+
 
 // buffer bits
 struct palabra_buffer {
@@ -68,7 +69,7 @@ struct sindrome _hamming_decodificar_bloque(
 int _hamming_decodificar_archivo(const int, char []);
 int _hamming_error_en_bloque(const int, struct buffer_bits *, float);
 int _hamming_error_en_archivo(const int, char [], float);
-void _hamming_corregir_info(const int, struct buffer_bits *, struct sindrome );
+int _hamming_corregir_info(const int, struct buffer_bits *, struct sindrome );
 
 // operaciones solo para bloques de 8 bits
 uint16_t _hamming_codificar_bloque_8(uint8_t );
