@@ -552,7 +552,8 @@ int _hamming_error_en_bloque(
 int _hamming_error_en_archivo(
 		const int ham_tipo,
 		char nombre_fuente[],
-		float probabilidad) {
+		float probabilidad1,
+		float probabilidad2) {
 	char nombre_destino[TAM_CADENAS_NOMBRE];
 	// se determina la extension segun el tipo de codificacion
 	const char *ext_destino = ham_tipo == HAM256 ?
@@ -587,7 +588,9 @@ int _hamming_error_en_archivo(
 
 		if (bytes_leidos) {
 			contador_errores +=
-				_hamming_error_en_bloque(ham_tipo, &bloque, probabilidad);
+				_hamming_error_en_bloque(ham_tipo, &bloque, probabilidad1);
+			contador_errores +=
+				_hamming_error_en_bloque(ham_tipo, &bloque, probabilidad2);
 
 			fwrite(bloque.palabra_inicio, 1, bloque.tam_arreglo, destino);
 		}
@@ -968,7 +971,7 @@ int _hamming_error_en_bloque_8(uint8_t *bloque, float probabilidad) {
  * @param probabilidad Valor entre 0 y 1. Valor de 1 es probabilidad total.
  * @return Devuelve la cantidad de errores que se introdujo en el archivo. -1 en caso de error.
  */
-int _hamming_error_en_archivo_8(char nombre_fuente[], float probabilidad) {
+int _hamming_error_en_archivo_8(char nombre_fuente[], float probabilidad1, float probabilidad2) {
 	char nombre_destino[TAM_CADENAS_NOMBRE];		// nombre de archivo destino
 	nombre_archivo_quitar_extension(nombre_destino, nombre_fuente);	// se quita la extension HA1
 	strcat(nombre_destino, ".he1");							// se incluye la extension HE1
@@ -994,7 +997,8 @@ int _hamming_error_en_archivo_8(char nombre_fuente[], float probabilidad) {
 		// si hubo lectura de fread
 		if (bytes_leidos) {
 			// se introduce potencial error en bloque, mas incrementar la cuenta
-			cantidad_errores += _hamming_error_en_bloque_8(&bloque_codificado, probabilidad);
+			cantidad_errores += _hamming_error_en_bloque_8(&bloque_codificado, probabilidad1);
+			cantidad_errores += _hamming_error_en_bloque_8(&bloque_codificado, probabilidad2);
 
 			fwrite(&bloque_codificado, 1, 1, archivo_destino);
 		}

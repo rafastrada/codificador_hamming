@@ -68,7 +68,7 @@ struct sindrome _hamming_decodificar_bloque(
 		struct buffer_bits *);
 int _hamming_decodificar_archivo(const int, char []);
 int _hamming_error_en_bloque(const int, struct buffer_bits *, float);
-int _hamming_error_en_archivo(const int, char [], float);
+int _hamming_error_en_archivo(const int, char [], float, float);
 int _hamming_corregir_info(const int, struct buffer_bits *, struct sindrome );
 
 // operaciones solo para bloques de 8 bits
@@ -77,7 +77,7 @@ int _hamming_codificar_archivo_8(char []);
 uint16_t _hamming_decodificar_bloque_8(uint16_t , uint8_t *);
 int _hamming_decodificar_archivo_8(char []);
 int _hamming_error_en_bloque_8(uint8_t *,float);
-int _hamming_error_en_archivo_8(char [], float);
+int _hamming_error_en_archivo_8(char [], float, float);
 void _hamming_corregir_bloque_8(uint16_t *, uint16_t , int []);
 
 // funciones adicionales

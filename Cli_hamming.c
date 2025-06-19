@@ -35,7 +35,7 @@ int main(int argc, char *argv[])
 				"\t\"Codifica el archivo con codigos de Hamming en el "
 				"tamanio de bloque indicado\"\n\n"
 				//alterar
-				"\talterar (nombre_archivo) (probabilidad)\n"
+				"\talterar (nombre_archivo) (probabilidad 1er error) (probabilidad 2do error)\n"
 				"\t\"Introduce errores en el archivo indicado segun 'probabilidad',"
 				" (valor entre 0 y 1)\"\n\n"
 				//decodificar
@@ -98,7 +98,7 @@ int main(int argc, char *argv[])
 		// -------------------------------------------------------
 		// funcion ALTERAR
 		// cli_hamming.exe | 'alterar' | nom_archivo | prob_de_error
-		else if (strcmp(argv[1], "alterar") == 0 && argc == 4) {
+		else if (strcmp(argv[1], "alterar") == 0 && argc == 5) {
 			// captura de nombre de archivo de entrada (3er argumento)
 			strncpy(nombre_archivo_entrada, argv[2], TAM_CADENAS_NOMBRE);
 			// captura de extension de archivo de entrada
@@ -106,22 +106,23 @@ int main(int argc, char *argv[])
 				tipo_ext_nombre_archivo(nombre_archivo_entrada);
 			// captura de argumento de probabilidad (4to argumento),
 			// se convierte de string a flotante
-			const float probabilidad = strtof(argv[3], NULL);
+			const float probabilidad1 = strtof(argv[3], NULL);
+			const float probabilidad2 = strtof(argv[4], NULL);
 
 			/* segun el tipo de codificacion se bifurca en la funcion de 
 			 * introduccion de error correspondiente*/
 			switch (ext_archivo_entrada) {
 				case HA1:
 					_hamming_error_en_archivo_8(
-							nombre_archivo_entrada, probabilidad);
+							nombre_archivo_entrada, probabilidad1, probabilidad2);
 					break;
 				case HA2:
 					_hamming_error_en_archivo(
-							HAM256, nombre_archivo_entrada, probabilidad);
+							HAM256, nombre_archivo_entrada, probabilidad1, probabilidad2);
 					break;
 				case HA3:
 					_hamming_error_en_archivo(
-							HAM4096, nombre_archivo_entrada, probabilidad);
+							HAM4096, nombre_archivo_entrada, probabilidad1, probabilidad2);
 					break;
 				default:
 					// cuando el archivo no es de formato HA_
