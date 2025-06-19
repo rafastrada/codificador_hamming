@@ -205,7 +205,7 @@ int out_mensaje_decodificacion(int tipo_ham, char nombre_archivo[], int nivel_er
 	int salida = 0;
 
 	if (nivel_error == -1) {
-		printf("\nHubo un error al codificar el archivo. (existe?)\n");
+		printf("\nHubo un error al decodificar el archivo. (existe?)\n");
 		return EXIT_FAILURE;
 	}
 	else {

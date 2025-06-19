@@ -872,6 +872,7 @@ void _hamming_corregir_bloque_8(uint16_t *bloques, uint16_t sindromes, int estad
  * @return Estado de exito de lectura/escritura de archivos. 0 sin errores, 1 caso contrario.
  */
 int _hamming_decodificar_archivo_8(char nombre_fuente[]) {
+	int retorno_nivel_error = EST_SINERROR;
 	char nombre_destino_error[TAM_CADENAS_NOMBRE],
 		nombre_destino_corregido[TAM_CADENAS_NOMBRE];
 
@@ -889,13 +890,13 @@ int _hamming_decodificar_archivo_8(char nombre_fuente[]) {
 	FILE *archivo_fuente, *archivo_destino_error, *archivo_destino_corregido;
 
 	archivo_fuente = fopen(nombre_fuente, "rb");
-	if (archivo_fuente == NULL) return 1;
+	if (archivo_fuente == NULL) return -1;
 
 	archivo_destino_error = fopen(nombre_destino_error, "wb");
-	if (archivo_destino_error == NULL) return 1;
+	if (archivo_destino_error == NULL) return -1;
 	
 	archivo_destino_corregido = fopen(nombre_destino_corregido, "wb");
-	if (archivo_destino_corregido == NULL) return 1;
+	if (archivo_destino_corregido == NULL) return -1;
 
 	while (!feof(archivo_fuente)) {
 		bytes_leidos = fread(&lectura, SIZEOF_UINT16, 1, archivo_fuente);
@@ -914,6 +915,11 @@ int _hamming_decodificar_archivo_8(char nombre_fuente[]) {
 			/* se extrae los bits de informacion corregidos */
 			sindromes = _hamming_decodificar_bloque_8(lectura, &informacion);
 
+			retorno_nivel_error = estado[0] > retorno_nivel_error ?
+				estado[0] : retorno_nivel_error;
+			retorno_nivel_error = estado[1] > retorno_nivel_error ?
+				estado[1] : retorno_nivel_error;
+
 			/*escritura en el archivo corregido */
 			fwrite(&informacion, SIZEOF_UINT8, 1, archivo_destino_corregido);
 		}
@@ -923,7 +929,7 @@ int _hamming_decodificar_archivo_8(char nombre_fuente[]) {
 	fclose(archivo_destino_corregido);
 	fclose(archivo_fuente);
 
-	return 0;
+	return retorno_nivel_error;
 }
 
 
